@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.3)
 
-project(fps_style_room)
+project(simple_level_editor)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
@@ -49,8 +49,8 @@ set(LIBRARIES
         ${OPENGL_LIBRARIES}
         )
 
-add_executable(fps_style_room ${SOURCE_FILES})
+add_executable(simple_level_editor ${SOURCE_FILES})
 
 
 include_directories(${CMAKE_SOURCE_DIR} ${INCLUDE_PATH})
-target_link_libraries (fps_style_room ${LIBRARIES})
+target_link_libraries (simple_level_editor ${LIBRARIES})

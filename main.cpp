@@ -58,6 +58,9 @@ int main () {
     GLuint vao;
     GLuint vbo;
 
+    GLuint gridVao;
+    GLuint gridVbo;
+
     /**Triangle Coordinates*/
     GLfloat points[] = {
             0.0f, 0.5f, 0.0f,
@@ -76,6 +79,30 @@ int main () {
             0.5f, -0.5f, 1.0f,
             -0.5f, -0.5f, 1.0f,
     };
+
+
+    int numberOfLines = 100;
+    GLfloat grid[numberOfLines * 6];
+    for (int i = 0; i < numberOfLines; ++i) {
+        //draw the lines parallel to the x axis
+        if (i < 50) {
+            grid[i * 6     ] =  i - 25;  //
+            grid[i * 6 + 1 ] = -0.5f;
+            grid[i * 6 + 2 ] = -100.f;
+            grid[i * 6 + 3 ] =  i -25;  //
+            grid[i * 6 + 4 ] = -0.5f;
+            grid[i * 6 + 5 ] = 100.0f;
+        }
+        //draw the lines parallel to the z axis;
+        if (i >= 50) {
+            grid[i * 6     ] =  -100.0f;  //
+            grid[i * 6 + 1 ] =  -0.5f;
+            grid[i * 6 + 2 ] = i -50 - 25.0f;
+            grid[i * 6 + 3 ] =  100.0f;  //
+            grid[i * 6 + 4 ] =  -0.5f;
+            grid[i * 6 + 5 ] =  i -50  - 25.0f;
+        }
+    }
 
     /*Shader Stuff*/
     const char* vertex_shader =
@@ -134,6 +161,20 @@ int main () {
 
     glEnable (GL_DEPTH_TEST); /* enable depth-testing */
     glDepthFunc (GL_LESS);
+
+
+    glGenBuffers (1, &gridVbo);
+    glBindBuffer (GL_ARRAY_BUFFER, gridVbo);
+    glBufferData (GL_ARRAY_BUFFER, numberOfLines * 6 * sizeof (GLfloat), grid,
+                  GL_STATIC_DRAW);
+
+    glGenVertexArrays (1, &gridVao);
+    glBindVertexArray (gridVao);
+    glEnableVertexAttribArray (0);
+    glBindBuffer (GL_ARRAY_BUFFER, gridVbo);
+    glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+    glLineWidth((GLfloat) 2.5f);
 
     glGenBuffers (1, &vbo);
     glBindBuffer (GL_ARRAY_BUFFER, vbo);
@@ -206,8 +247,13 @@ int main () {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glViewport(0, 0, hardware.vmode->width, hardware.vmode->height);
         glUseProgram(shader_programme);
+
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 12);
+
+        glBindVertexArray(gridVao);
+        glDrawArrays(GL_LINES, 0, numberOfLines * 2);
+
         glfwPollEvents();
         if (GLFW_PRESS == glfwGetKey(window, GLFW_KEY_ESCAPE)) {
             glfwSetWindowShouldClose(window, 1);
@@ -322,9 +368,11 @@ static void updateMovement(Camera* camera) {
                                            ( left.v[2]) * ((camera->move_angle == 90 )? 1:-1) * (acceleration *maxVelocity));
         }else{
             camera->velocity.v[0] =(float)(camera->velocity.v[0] * (1-acceleration) +
-                    ( camera->viewMatrix.m[2]) * ((camera->move_angle == 180 )? -1:1) * (acceleration *maxVelocity));
+                                           ( camera->viewMatrix.m[2]) * ((camera->move_angle == 180 )? -1:1) * (acceleration *maxVelocity));
+            camera->velocity.v[1] =(float)(camera->velocity.v[1] * (1-acceleration) +
+                                           ( camera->viewMatrix.m[6]) * ((camera->move_angle == 180 )? -1:1) * (acceleration *maxVelocity));
             camera->velocity.v[2] =(float)(camera->velocity.v[2] * (1-acceleration) +
-                    ( camera->viewMatrix.m[10]) * ((camera->move_angle == 180 )? -1:1) * (acceleration *maxVelocity));
+                                           ( camera->viewMatrix.m[10]) * ((camera->move_angle == 180 )? -1:1) * (acceleration *maxVelocity));
         }
         camera->moving = true;
     }
@@ -333,6 +381,7 @@ static void updateMovement(Camera* camera) {
 
         camera->pos[0] += -camera->velocity.v[0] *0.02f;
         camera->pos[2] += -camera->velocity.v[2] *0.02f;
+        camera->pos[1] += -camera->velocity.v[1] *0.02f;
 
         if(dot(camera->velocity,camera->velocity) < 1e-9) {
             printf("Stopping\n");
@@ -349,7 +398,6 @@ static void updateMovement(Camera* camera) {
     glUniformMatrix4fv(camera->view_mat_location, 1, GL_FALSE, camera->viewMatrix.m);
 
 }
-
 
 
 
