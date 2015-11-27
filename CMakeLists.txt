@@ -16,7 +16,7 @@ find_package (OpenGL REQUIRED)
 find_package (GLM REQUIRED)
 find_package (GLEW REQUIRED STATIC)
 
-set(SOURCE_FILES main.cpp utils/maths_funcs.cpp utils/maths_funcs.h utils/quat_funcs.cpp utils/quat_funcs.h)
+set(SOURCE_FILES main.cpp utils/math_utils/maths_funcs.cpp utils/math_utils/maths_funcs.h utils/math_utils/quat_funcs.cpp utils/math_utils/quat_funcs.h main.h utils/log_utils/log.cpp utils/log_utils/log.h platform/glfw.cpp platform/glfw.h)
 #set(SOURCE_FILES main.cpp __add_other_cpp_files_here__)
 
 #set additional libraries

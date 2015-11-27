@@ -1,73 +1,17 @@
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
-#include <stdio.h>
-#include <math.h>
-#include <utils/maths_funcs.h>
-#include <utils/quat_funcs.h>
-
-struct Hardware{
-
-    GLFWmonitor *mon;
-    const GLFWvidmode* vmode;
-};
-struct Camera{
-
-    float pos[3]; // don't start at zero, or we will be too close
-    float yaw = 0.0f; // y-rotation in degrees
-    float pitch = 0.0f;
-    float signal_amplifier = 0.1f;
-    mat4 T;
-    mat4 Rpitch;
-    mat4 Ryaw;
-    mat4 viewMatrix;
-
-    GLint view_mat_location;
-    GLint proj_mat_location;
-
-    float quatYaw[4];
-    float quatPitch[4];
-
-    int pushing; //-1 slowing down, +1 accelerating , 0 = idle
-    bool moving; //velocity != 0
-    double move_angle;
-    double look_angle;
-
-    vec3 velocity; //actor's velocity
-};
-
-struct Input{
-    bool wPressed;
-    bool sPressed;
-    bool aPressed;
-    bool dPressed;
-};
-
-
-struct Grid{
-    GLuint gridVbo;
-    int numberOfLines;
-    GLfloat heightValue;
-    GLfloat* gridData;
-
-};
-
-
-static Grid grid;
-static Camera camera;
-static Hardware hardware;
-static Input input;
-
-static void cursor_position_callback(GLFWwindow *window, double xpos, double ypos);
-static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
-static void calculateViewMatrix(Camera* camera);
-static void updateMovement(Camera* camera);
-static void updateGridHeight(Grid* grid);
-
+#include "main.h"
 
 int main () {
-    GLFWwindow* window = NULL;
-    const GLubyte* renderer;
-    const GLubyte* version;
+
+    hardware = {};
+
+    assert(restart_gl_log());
+
+    assert(start_gl());
+
+
+    GLFWwindow *window = NULL;
+    const GLubyte *renderer;
+    const GLubyte *version;
     GLuint vao;
     GLuint vbo;
 
@@ -87,42 +31,40 @@ int main () {
             0.5f, 0.5f, 0.0f,
 
             -0.5f, -0.5f, 0.5f,
-            -0.5f,-0.5f, -0.5f,
-            -0.5f,0.5f, 0.0f,
+            -0.5f, -0.5f, -0.5f,
+            -0.5f, 0.5f, 0.0f,
 
             0.0f, 0.5f, 0.5f,
             0.5f, -0.5f, 0.5f,
             -0.5f, -0.5f, 0.5f,
     };
 
-
     //Create our gridPoints coordinates
-    GLfloat gridPoints[grid.numberOfLines * 6];
+    grid.gridData = new GLfloat[grid.numberOfLines * 6];
     for (int i = 0; i < grid.numberOfLines; ++i) {
         //draw the lines parallel to the x axis
         if (i < 50) {
-            gridPoints[i * 6     ] = i - 25;  //
-            gridPoints[i * 6 + 1 ] = grid.heightValue;
-            gridPoints[i * 6 + 2 ] = -100.f;
-            gridPoints[i * 6 + 3 ] = i - 25;  //
-            gridPoints[i * 6 + 4 ] = grid.heightValue;
-            gridPoints[i * 6 + 5 ] = 100.0f;
+            grid.gridData[i * 6] = i - 25;  //
+            grid.gridData[i * 6 + 1] = grid.heightValue;
+            grid.gridData[i * 6 + 2] = -100.f;
+            grid.gridData[i * 6 + 3] = i - 25;  //
+            grid.gridData[i * 6 + 4] = grid.heightValue;
+            grid.gridData[i * 6 + 5] = 100.0f;
         }
         //draw the lines parallel to the z axis;
         if (i >= 50) {
-            gridPoints[i * 6     ] =  -100.0f;  //
-            gridPoints[i * 6 + 1 ] =  grid.heightValue;
-            gridPoints[i * 6 + 2 ] = i - 50 - 25.0f;
-            gridPoints[i * 6 + 3 ] =  100.0f;  //
-            gridPoints[i * 6 + 4 ] =  grid.heightValue;
-            gridPoints[i * 6 + 5 ] = i - 50 - 25.0f;
+            grid.gridData[i * 6] = -100.0f;  //
+            grid.gridData[i * 6 + 1] = grid.heightValue;
+            grid.gridData[i * 6 + 2] = i - 50 - 25.0f;
+            grid.gridData[i * 6 + 3] = 100.0f;  //
+            grid.gridData[i * 6 + 4] = grid.heightValue;
+            grid.gridData[i * 6 + 5] = i - 50 - 25.0f;
         }
     }
 
-    grid.gridData = gridPoints;
 
     /*Shader Stuff*/
-    const char* vertex_shader =
+    const char *vertex_shader =
             "#version 410\n"
                     "uniform mat4 view, proj;"
                     "in vec3 vertex_points;"
@@ -130,7 +72,7 @@ int main () {
                     "void main () {"
                     "	gl_Position = proj * view * vec4 (vertex_points, 1.0);"
                     "}";
-    const char* fragment_shader =
+    const char *fragment_shader =
             "#version 410\n"
                     "out vec4 fragment_colour;"
                     "void main () {"
@@ -141,80 +83,63 @@ int main () {
     GLuint shader_programme;
 
     /* start GL context and O/S window using the GLFW helper library */
-    if (!glfwInit ()) {
-        fprintf (stderr, "ERROR: could not start GLFW3\n");
-        return 1;
-    }
 
-    hardware = {};
 
-    hardware.mon = glfwGetPrimaryMonitor();
-    hardware.vmode = glfwGetVideoMode(hardware.mon);
-
-    window = glfwCreateWindow (hardware.vmode->width, hardware.vmode->height, "Hello World", hardware.mon, NULL);
-    if (!window) {
-        fprintf (stderr, "ERROR: could not open window with GLFW3\n");
-        glfwTerminate();
-        return 1;
-    }
-
-    glfwMakeContextCurrent (window);
 
     /* start GLEW extension handler */
     glewExperimental = GL_TRUE;
-    glewInit ();
+    glewInit();
 
 
-    glfwSetCursorPosCallback(window,cursor_position_callback);
+    glfwSetCursorPosCallback(window, cursor_position_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetKeyCallback(window, key_callback);
-    glfwSetInputMode(window,GLFW_STICKY_KEYS, 1);
+    glfwSetInputMode(window, GLFW_STICKY_KEYS, 1);
 
     /* get version info */
-    renderer = glGetString (GL_RENDERER); /* get renderer string */
-    version = glGetString (GL_VERSION); /* version as a string */
-    printf ("Renderer: %s\n", renderer);
-    printf ("OpenGL version supported %s\n", version);
+    renderer = glGetString(GL_RENDERER); /* get renderer string */
+    version = glGetString(GL_VERSION); /* version as a string */
+    printf("Renderer: %s\n", renderer);
+    printf("OpenGL version supported %s\n", version);
 
-    glEnable (GL_DEPTH_TEST); /* enable depth-testing */
-    glDepthFunc (GL_LESS);
-
+    glEnable(GL_DEPTH_TEST); /* enable depth-testing */
+    glDepthFunc(GL_LESS);
 
     //generate buffers for our stuff
-    glGenBuffers (1, &grid.gridVbo);
-    glBindBuffer (GL_ARRAY_BUFFER, grid.gridVbo);
-    glBufferData (GL_ARRAY_BUFFER, grid.numberOfLines* 6 * sizeof (GLfloat), gridPoints,
-                  GL_STATIC_DRAW);
+    glGenBuffers(1, &grid.gridVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, grid.gridVbo);
+    glBufferData(GL_ARRAY_BUFFER, grid.numberOfLines * 6 * sizeof(GLfloat), grid.gridData,
+                 GL_STATIC_DRAW);
 
-    glGenVertexArrays (1, &gridVao);
-    glBindVertexArray (gridVao);
-    glEnableVertexAttribArray (0);
-    glBindBuffer (GL_ARRAY_BUFFER, grid.gridVbo);
-    glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+    glGenVertexArrays(1, &gridVao);
+    glBindVertexArray(gridVao);
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, grid.gridVbo);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
     glLineWidth((GLfloat) 2.5f);
 
-    glGenBuffers (1, &vbo);
-    glBindBuffer (GL_ARRAY_BUFFER, vbo);
-    glBufferData (GL_ARRAY_BUFFER, 36 * sizeof (GLfloat), points,
-                  GL_STATIC_DRAW);
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, 36 * sizeof(GLfloat), points,
+                 GL_STATIC_DRAW);
 
-    glGenVertexArrays (1, &vao);
-    glBindVertexArray (vao);
-    glEnableVertexAttribArray (0);
-    glBindBuffer (GL_ARRAY_BUFFER, vbo);
-    glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
-    vs = glCreateShader (GL_VERTEX_SHADER);
-    glShaderSource (vs, 1, &vertex_shader, NULL);
-    glCompileShader (vs);
-    fs = glCreateShader (GL_FRAGMENT_SHADER);
-    glShaderSource (fs, 1, &fragment_shader, NULL);
-    glCompileShader (fs);
-    shader_programme = glCreateProgram ();
-    glAttachShader (shader_programme, fs);
-    glAttachShader (shader_programme, vs);
-    glLinkProgram (shader_programme);
+    vs = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vs, 1, &vertex_shader, NULL);
+    glCompileShader(vs);
+    fs = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fs, 1, &fragment_shader, NULL);
+    glCompileShader(fs);
+    shader_programme = glCreateProgram();
+    glAttachShader(shader_programme, fs);
+    glAttachShader(shader_programme, vs);
+    glLinkProgram(shader_programme);
 
     // camera stuff
 #define PI 3.14159265359
@@ -223,10 +148,10 @@ int main () {
     float near = 0.1f;
     float far = 100.0f;
     float fov = 67.0f * DEG_TO_RAD;
-    float aspect = (float)hardware.vmode->width /(float)hardware.vmode->height;
+    float aspect = (float) hardware.vmode->width / (float) hardware.vmode->height;
 
     // matrix components
-    float range = tan (fov * 0.5f) * near;
+    float range = tan(fov * 0.5f) * near;
     float Sx = (2.0f * near) / (range * aspect + range * aspect);
     float Sy = near / range;
     float Sz = -(far + near) / (far - near);
@@ -244,9 +169,9 @@ int main () {
     camera.pos[0] = 0.0f; // don't start at zero, or we will be too close
     camera.pos[1] = 0.0f; // don't start at zero, or we will be too close
     camera.pos[2] = 0.5f; // don't start at zero, or we will be too close
-    camera.T = translate (identity_mat4 (), vec3 (-camera.pos[0], -camera.pos[1], -camera.pos[2]));
-    camera.Rpitch = rotate_y_deg (identity_mat4 (), -camera.yaw);
-    camera.Ryaw = rotate_y_deg (identity_mat4 (), -camera.yaw);
+    camera.T = translate(identity_mat4(), vec3(-camera.pos[0], -camera.pos[1], -camera.pos[2]));
+    camera.Rpitch = rotate_y_deg(identity_mat4(), -camera.yaw);
+    camera.Ryaw = rotate_y_deg(identity_mat4(), -camera.yaw);
     camera.viewMatrix = camera.Rpitch * camera.T;
 
     glUseProgram(shader_programme);
@@ -258,7 +183,7 @@ int main () {
     glUniformMatrix4fv(camera.proj_mat_location, 1, GL_FALSE, proj_mat);
 
 
-    while (!glfwWindowShouldClose (window)) {
+    while (!glfwWindowShouldClose(window)) {
         updateMovement(&camera);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -269,7 +194,7 @@ int main () {
         glDrawArrays(GL_TRIANGLES, 0, 12);
 
         glBindVertexArray(gridVao);
-        glDrawArrays(GL_LINES, 0, grid.numberOfLines* 2);
+        glDrawArrays(GL_LINES, 0, grid.numberOfLines * 2);
 
         glfwPollEvents();
         if (GLFW_PRESS == glfwGetKey(window, GLFW_KEY_ESCAPE)) {

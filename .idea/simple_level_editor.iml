@@ -4,10 +4,15 @@
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/CMakeLists.txt" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/main.cpp" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/utils/maths_funcs.cpp" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/utils/maths_funcs.h" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/utils/quat_funcs.cpp" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/utils/quat_funcs.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/main.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/platform/glfw.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/platform/glfw.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/utils/log_utils/log.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/utils/log_utils/log.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/utils/math_utils/maths_funcs.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/utils/math_utils/maths_funcs.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/utils/math_utils/quat_funcs.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/utils/math_utils/quat_funcs.h" isTestSource="false" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
