@@ -42,6 +42,17 @@ struct Input{
     bool dPressed;
 };
 
+
+struct Grid{
+    GLuint gridVbo;
+    int numberOfLines;
+    GLfloat heightValue;
+    GLfloat* gridData;
+
+};
+
+
+static Grid grid;
 static Camera camera;
 static Hardware hardware;
 static Input input;
@@ -50,6 +61,8 @@ static void cursor_position_callback(GLFWwindow *window, double xpos, double ypo
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 static void calculateViewMatrix(Camera* camera);
 static void updateMovement(Camera* camera);
+static void updateGridHeight(Grid* grid);
+
 
 int main () {
     GLFWwindow* window = NULL;
@@ -58,51 +71,55 @@ int main () {
     GLuint vao;
     GLuint vbo;
 
+    grid = {};
+    grid.numberOfLines = 100;
+    grid.heightValue = -0.5f;
     GLuint gridVao;
-    GLuint gridVbo;
 
     /**Triangle Coordinates*/
     GLfloat points[] = {
-            0.0f, 0.5f, 0.0f,
-            0.5f, -0.5f, 0.0f,
-            -0.5f, -0.5f, 0.0f,
+            0.0f, 0.5f, -0.5f,
+            0.5f, -0.5f, -0.5f,
+            -0.5f, -0.5f, -0.5f,
 
-            0.5f, -0.5f, 0.0f,
-            0.5, -0.5f, 1.0,
-            0.5f, 0.5f, 0.5f,
+            0.5f, -0.5f, -0.5f,
+            0.5, -0.5f, 0.5f,
+            0.5f, 0.5f, 0.0f,
 
-            -0.5f, -0.5f, 1.0f,
-            -0.5f,-0.5f, 0.0f,
-            -0.5f,0.5f, 0.5f,
+            -0.5f, -0.5f, 0.5f,
+            -0.5f,-0.5f, -0.5f,
+            -0.5f,0.5f, 0.0f,
 
-            0.0f, 0.5f, 1.0f,
-            0.5f, -0.5f, 1.0f,
-            -0.5f, -0.5f, 1.0f,
+            0.0f, 0.5f, 0.5f,
+            0.5f, -0.5f, 0.5f,
+            -0.5f, -0.5f, 0.5f,
     };
 
 
-    int numberOfLines = 100;
-    GLfloat grid[numberOfLines * 6];
-    for (int i = 0; i < numberOfLines; ++i) {
+    //Create our gridPoints coordinates
+    GLfloat gridPoints[grid.numberOfLines * 6];
+    for (int i = 0; i < grid.numberOfLines; ++i) {
         //draw the lines parallel to the x axis
         if (i < 50) {
-            grid[i * 6     ] =  i - 25;  //
-            grid[i * 6 + 1 ] = -0.5f;
-            grid[i * 6 + 2 ] = -100.f;
-            grid[i * 6 + 3 ] =  i -25;  //
-            grid[i * 6 + 4 ] = -0.5f;
-            grid[i * 6 + 5 ] = 100.0f;
+            gridPoints[i * 6     ] = i - 25;  //
+            gridPoints[i * 6 + 1 ] = grid.heightValue;
+            gridPoints[i * 6 + 2 ] = -100.f;
+            gridPoints[i * 6 + 3 ] = i - 25;  //
+            gridPoints[i * 6 + 4 ] = grid.heightValue;
+            gridPoints[i * 6 + 5 ] = 100.0f;
         }
         //draw the lines parallel to the z axis;
         if (i >= 50) {
-            grid[i * 6     ] =  -100.0f;  //
-            grid[i * 6 + 1 ] =  -0.5f;
-            grid[i * 6 + 2 ] = i -50 - 25.0f;
-            grid[i * 6 + 3 ] =  100.0f;  //
-            grid[i * 6 + 4 ] =  -0.5f;
-            grid[i * 6 + 5 ] =  i -50  - 25.0f;
+            gridPoints[i * 6     ] =  -100.0f;  //
+            gridPoints[i * 6 + 1 ] =  grid.heightValue;
+            gridPoints[i * 6 + 2 ] = i - 50 - 25.0f;
+            gridPoints[i * 6 + 3 ] =  100.0f;  //
+            gridPoints[i * 6 + 4 ] =  grid.heightValue;
+            gridPoints[i * 6 + 5 ] = i - 50 - 25.0f;
         }
     }
+
+    grid.gridData = gridPoints;
 
     /*Shader Stuff*/
     const char* vertex_shader =
@@ -163,15 +180,16 @@ int main () {
     glDepthFunc (GL_LESS);
 
 
-    glGenBuffers (1, &gridVbo);
-    glBindBuffer (GL_ARRAY_BUFFER, gridVbo);
-    glBufferData (GL_ARRAY_BUFFER, numberOfLines * 6 * sizeof (GLfloat), grid,
+    //generate buffers for our stuff
+    glGenBuffers (1, &grid.gridVbo);
+    glBindBuffer (GL_ARRAY_BUFFER, grid.gridVbo);
+    glBufferData (GL_ARRAY_BUFFER, grid.numberOfLines* 6 * sizeof (GLfloat), gridPoints,
                   GL_STATIC_DRAW);
 
     glGenVertexArrays (1, &gridVao);
     glBindVertexArray (gridVao);
     glEnableVertexAttribArray (0);
-    glBindBuffer (GL_ARRAY_BUFFER, gridVbo);
+    glBindBuffer (GL_ARRAY_BUFFER, grid.gridVbo);
     glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
     glLineWidth((GLfloat) 2.5f);
@@ -186,7 +204,6 @@ int main () {
     glEnableVertexAttribArray (0);
     glBindBuffer (GL_ARRAY_BUFFER, vbo);
     glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-
 
     vs = glCreateShader (GL_VERTEX_SHADER);
     glShaderSource (vs, 1, &vertex_shader, NULL);
@@ -252,7 +269,7 @@ int main () {
         glDrawArrays(GL_TRIANGLES, 0, 12);
 
         glBindVertexArray(gridVao);
-        glDrawArrays(GL_LINES, 0, numberOfLines * 2);
+        glDrawArrays(GL_LINES, 0, grid.numberOfLines* 2);
 
         glfwPollEvents();
         if (GLFW_PRESS == glfwGetKey(window, GLFW_KEY_ESCAPE)) {
@@ -266,6 +283,12 @@ int main () {
     return 0;
 }
 
+/**
+ * Called every time the cursor moves. It is used to calculate the Camera's direction
+ * in window - the window holding the cursor
+ * in xpos   - the xposition of the cursor on the screen
+ * in ypos   - the yposition of the curose on the screen
+ */
 static void cursor_position_callback(GLFWwindow *window, double xpos, double ypos) {
 
 
@@ -294,6 +317,13 @@ static void cursor_position_callback(GLFWwindow *window, double xpos, double ypo
 
 }
 
+/**
+ * Called everytime we press a key on the keyboard
+ * in window - the focused window
+ * in key    - which key?
+ * in scancode
+ * in action - One of GFLW_PRESS, GLFW_REPEAT or GLFW_RELEASE
+ */
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 
     if (key == GLFW_KEY_W &&  action == GLFW_PRESS) {
@@ -333,16 +363,42 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
         input.dPressed = false;
     }
 
+    if (key == GLFW_KEY_PAGE_UP && action == GLFW_PRESS) {
+        grid.heightValue  += 1.0f;
+        updateGridHeight(&grid);
+    }
+
+    if (key == GLFW_KEY_PAGE_DOWN && action == GLFW_PRESS) {
+        grid.heightValue  -= 1.0f;
+        updateGridHeight(&grid);
+    }
 }
 
+static void updateGridHeight(Grid* grid){
 
+    //Modify the value
+    glBindBuffer(GL_ARRAY_BUFFER, grid->gridVbo);
+    GLfloat *data = (GLfloat *) glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+
+    if (data != (GLfloat *) NULL) {
+        for (int i = 0; i < (grid->numberOfLines*2); ++i) {
+            data[i * 3 + 1 ] =grid->heightValue ;
+        }
+        glUnmapBuffer(GL_ARRAY_BUFFER);
+    }
+}
+
+/**
+ * calculate a new View Matrix for our shader
+ */
 static void calculateViewMatrix(Camera* camera){
     camera->T = translate (identity_mat4 (), vec3 (-camera->pos[0], -camera->pos[1], -camera->pos[2]));
     camera->viewMatrix = camera->Rpitch * camera->Ryaw * camera->T;
-
-//    printf("X:%f Y:%f Z:%f\n",  camera->viewMatrix.m[2], camera->viewMatrix.m[6],camera->viewMatrix.m[10]);
 }
 
+/**
+ * Calculate the player's kinematics and render it
+ */
 static void updateMovement(Camera* camera) {
 
 
@@ -354,9 +410,6 @@ static void updateMovement(Camera* camera) {
 
         const double maxVelocity = 0.1 * (camera->pushing> 0);
         const double acceleration= camera->pushing>0 ? 0.2:0.1;
-
-//        camera->pos[0] += -0.1f * camera->viewMatrix.m[2] * ((camera->move_angle == 180 )? -1:1);
-//        camera->pos[2] += -0.1f * camera->viewMatrix.m[10] * ((camera->move_angle == 180 )? -1:1);
 
         if(camera->move_angle == 90.0f || camera->move_angle == -90.0f) {
             vec3 left = cross(vec3(camera->viewMatrix.m[2],camera->viewMatrix.m[6],camera->viewMatrix.m[10]),
