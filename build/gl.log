@@ -1,3 +1,8 @@
-GL_LOG_FILE log. Local time Fri Nov 27 22:21:24 2015
+GL_LOG_FILE log. Local time Fri Nov 27 23:34:05 2015
 
-starting GLFW 3.2.0 X11 GLX clock_gettime /dev/js XI Xf86vm
+starting GLFW 3.2.0 X11 GLX clock_gettime /dev/js XI Xf86vmcreating shader from /home/alvaregd/Documents/Games/simple_level_editor/shaders/grid.vert...
+shader compiled. index 1
+creating shader from /home/alvaregd/Documents/Games/simple_level_editor/shaders/grid.frag...
+shader compiled. index 2
+created programme 3. attaching shaders 1 and 2...
+program 3 GL_VALIDATE_STATUS = GL_TRUE

@@ -15,6 +15,11 @@
 #include <utils/log_utils/logger.h>
 #include <platform/glfw_launcher.h>
 #include <platform/hardware.h>
+#include <utils/io_utils/shader_loader.h>
+
+
+#define VERTEX_SHADER "/home/alvaregd/Documents/Games/simple_level_editor/shaders/grid.vert"
+#define FRAGMENT_SHADER "/home/alvaregd/Documents/Games/simple_level_editor/shaders/grid.frag"
 
 struct Camera{
 
