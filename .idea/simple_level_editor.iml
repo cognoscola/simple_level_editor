@@ -5,11 +5,18 @@
       <sourceFolder url="file://$MODULE_DIR$/CMakeLists.txt" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/main.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/main.h" isTestSource="false" />
+<<<<<<< HEAD
       <sourceFolder url="file://$MODULE_DIR$/platform/glfw_launcher.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/platform/glfw_launcher.h" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/platform/hardware.h" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/utils/log_utils/logger.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/utils/log_utils/logger.h" isTestSource="false" />
+=======
+      <sourceFolder url="file://$MODULE_DIR$/platform/glfw.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/platform/glfw.h" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/utils/log_utils/log.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/utils/log_utils/log.h" isTestSource="false" />
+>>>>>>> 9e70fb0bc8a6ff82c57053754d80f1fd7eedf3cf
       <sourceFolder url="file://$MODULE_DIR$/utils/math_utils/maths_funcs.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/utils/math_utils/maths_funcs.h" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/utils/math_utils/quat_funcs.cpp" isTestSource="false" />
