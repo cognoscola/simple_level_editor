@@ -1,8 +1,29 @@
 #include "main.h"
 
+static void updateCursorXZPosition(Cursor* cursor);
+
+
+
+void createVertexBufferObject(GLuint *name, size_t size, GLfloat *data){
+
+    glGenBuffers (1, name);
+    glBindBuffer (GL_ARRAY_BUFFER, *name);
+    glBufferData (GL_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
+}
+
+void createVertexArrayObjet(GLuint* name, GLuint* bufferObject, GLint dimensions){
+
+    glGenVertexArrays (1, name);
+    glBindVertexArray (*name);
+    glEnableVertexAttribArray (0);
+    glBindBuffer (GL_ARRAY_BUFFER, *bufferObject);
+    glVertexAttribPointer (0, dimensions, GL_FLOAT, GL_FALSE, 0, NULL);
+}
+
+
 int main () {
 
-    //initialize window variables 
+    //initialize window variables
     hardware = {};
 
     //start logger system
@@ -11,16 +32,8 @@ int main () {
     //create our main window
     assert(start_gl());
 
-    GLuint vao;
-    GLuint vbo;
-
-    grid = {};
-    grid.numberOfLines = 100;
-    grid.heightValue = -0.5f;
-    GLuint gridVao;
-
-    /**Triangle Coordinates*/
-    GLfloat points[] = {
+    cursor = {};
+    GLfloat points[]  = {
             0.0f, 0.5f, -0.5f,
             0.5f, -0.5f, -0.5f,
             -0.5f, -0.5f, -0.5f,
@@ -37,28 +50,34 @@ int main () {
             0.5f, -0.5f, 0.5f,
             -0.5f, -0.5f, 0.5f,
     };
+    cursor.data = points;
 
+    grid = {};
+    grid.numberOfLines = 100;
+    grid.heightValue = -0.5f;
+
+    /**Triangle Coordinates*/
 
     //Create our gridPoints coordinates
-    grid.gridData = new GLfloat[grid.numberOfLines * 6];
+    grid.data = new GLfloat[grid.numberOfLines * 6];
     for (int i = 0; i < grid.numberOfLines; ++i) {
         //draw the lines parallel to the x axis
         if (i < 50) {
-            grid.gridData[i * 6     ] = i - 25;  //
-            grid.gridData[i * 6 + 1 ] = grid.heightValue;
-            grid.gridData[i * 6 + 2 ] = -100.f;
-            grid.gridData[i * 6 + 3 ] = i - 25;  //
-            grid.gridData[i * 6 + 4 ] = grid.heightValue;
-            grid.gridData[i * 6 + 5 ] = 100.0f;
+            grid.data[i * 6     ] = i - 25;  //
+            grid.data[i * 6 + 1 ] = grid.heightValue;
+            grid.data[i * 6 + 2 ] = -100.f;
+            grid.data[i * 6 + 3 ] = i - 25;  //
+            grid.data[i * 6 + 4 ] = grid.heightValue;
+            grid.data[i * 6 + 5 ] = 100.0f;
         }
         //draw the lines parallel to the z axis;
         if (i >= 50) {
-            grid.gridData[i * 6     ] =  -100.0f;  //
-            grid.gridData[i * 6 + 1 ] =  grid.heightValue;
-            grid.gridData[i * 6 + 2 ] = i - 50 - 25.0f;
-            grid.gridData[i * 6 + 3 ] =  100.0f;  //
-            grid.gridData[i * 6 + 4 ] =  grid.heightValue;
-            grid.gridData[i * 6 + 5 ] = i - 50 - 25.0f;
+            grid.data[i * 6     ] =  -100.0f;  //
+            grid.data[i * 6 + 1 ] =  grid.heightValue;
+            grid.data[i * 6 + 2 ] = i - 50 - 25.0f;
+            grid.data[i * 6 + 3 ] =  100.0f;  //
+            grid.data[i * 6 + 4 ] =  grid.heightValue;
+            grid.data[i * 6 + 5 ] = i - 50 - 25.0f;
         }
     }
 
@@ -74,30 +93,10 @@ int main () {
     glEnable (GL_DEPTH_TEST); /* enable depth-testing */
     glDepthFunc (GL_LESS);
 
-    //generate buffers for our stuff
-    glGenBuffers (1, &grid.gridVbo);
-    glBindBuffer (GL_ARRAY_BUFFER, grid.gridVbo);
-    glBufferData (GL_ARRAY_BUFFER, grid.numberOfLines* 6 * sizeof (GLfloat), grid.gridData,
-                  GL_STATIC_DRAW);
-
-    glGenVertexArrays (1, &gridVao);
-    glBindVertexArray (gridVao);
-    glEnableVertexAttribArray (0);
-    glBindBuffer (GL_ARRAY_BUFFER, grid.gridVbo);
-    glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-
-    glLineWidth((GLfloat) 2.5f);
-
-    glGenBuffers (1, &vbo);
-    glBindBuffer (GL_ARRAY_BUFFER, vbo);
-    glBufferData (GL_ARRAY_BUFFER, 36 * sizeof (GLfloat), points,
-                  GL_STATIC_DRAW);
-
-    glGenVertexArrays (1, &vao);
-    glBindVertexArray (vao);
-    glEnableVertexAttribArray (0);
-    glBindBuffer (GL_ARRAY_BUFFER, vbo);
-    glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+    createVertexBufferObject(&grid.vbo, grid.numberOfLines * 6 * sizeof(GLfloat), grid.data);
+    createVertexArrayObjet(&grid.vao, &grid.vbo, 3);
+    createVertexBufferObject(&cursor.vbo, 36 * sizeof(GLfloat), cursor.data);
+    createVertexArrayObjet(&cursor.vao, &cursor.vbo, 3);
 
     // camera stuff
 #define PI 3.14159265359
@@ -105,13 +104,13 @@ int main () {
 
     float near = 0.1f;
     float far = 100.0f;
-    float fov = 67.0f * DEG_TO_RAD;
+    double fov = 67.0f * DEG_TO_RAD;
     float aspect = (float)hardware.vmode->width /(float)hardware.vmode->height;
 
     // matrix components
-    float range = tan (fov * 0.5f) * near;
-    float Sx = (2.0f * near) / (range * aspect + range * aspect);
-    float Sy = near / range;
+    double range = tan (fov * 0.5f) * near;
+    double Sx = (2.0f * near) / (range * aspect + range * aspect);
+    double Sy = near / range;
     float Sz = -(far + near) / (far - near);
     float Pz = -(2.0f * far * near) / (far - near);
     GLfloat proj_mat[] = {
@@ -147,10 +146,10 @@ int main () {
         glViewport(0, 0, hardware.vmode->width, hardware.vmode->height);
         glUseProgram(shader_program);
 
-        glBindVertexArray(vao);
+        glBindVertexArray(cursor.vao);
         glDrawArrays(GL_TRIANGLES, 0, 12);
 
-        glBindVertexArray(gridVao);
+        glBindVertexArray(grid.vao);
         glDrawArrays(GL_LINES, 0, grid.numberOfLines* 2);
 
         glfwPollEvents();
@@ -172,7 +171,6 @@ int main () {
  * in ypos   - the yposition of the curose on the screen
  */
 static void cursor_position_callback(GLFWwindow *window, double xpos, double ypos) {
-
 
     //calculate pitch
     static double  previous_ypos = ypos;
@@ -227,26 +225,69 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
             camera.move_angle =  action == GLFW_PRESS ? 90:camera.move_angle;
             break;
         case GLFW_KEY_PAGE_UP:
-            if (action == GLFW_PRESS) { grid.heightValue += 1.0f;updateGridHeight(&grid);}
+            if (action == GLFW_PRESS) { grid.heightValue += 1.0f;updateGridHeight(&grid, &cursor);}
             break;
         case GLFW_KEY_PAGE_DOWN:
-            if (action == GLFW_PRESS) { grid.heightValue -= 1.0f; updateGridHeight(&grid);}
+            if (action == GLFW_PRESS) { grid.heightValue -= 1.0f; updateGridHeight(&grid, &cursor);}
             break;
+        case GLFW_KEY_UP:
+            if(action == GLFW_PRESS || action == GLFW_REPEAT)
+            { cursor.editZValue = 1.0f;cursor.editXValue = 0;updateCursorXZPosition(&cursor); }
+            break;
+        case GLFW_KEY_DOWN:
+            if(action == GLFW_PRESS || action == GLFW_REPEAT)
+            { cursor.editZValue = -1.0f;cursor.editXValue = 0;updateCursorXZPosition(&cursor); }
+            break;
+        case GLFW_KEY_LEFT:
+            if(action == GLFW_PRESS || action == GLFW_REPEAT)
+            { cursor.editXValue = 1.0f;cursor.editZValue = 0;updateCursorXZPosition(&cursor);}
+            break;
+        case GLFW_KEY_RIGHT:
+            if(action == GLFW_PRESS || action == GLFW_REPEAT)
+            { cursor.editXValue = -1.0f;cursor.editZValue = 0;updateCursorXZPosition(&cursor);}
+            break;
+    }
+}
+
+static void updateCursorXZPosition(Cursor* cursor){
+    glBindBuffer(GL_ARRAY_BUFFER, cursor->vbo);
+    GLfloat *data = (GLfloat *) glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+    if (data != (GLfloat *) NULL) {
+        data[0]  += cursor->editXValue; data[3]  += cursor->editXValue; data[6]  += cursor->editXValue;
+        data[9]  += cursor->editXValue; data[12]  += cursor->editXValue; data[15]  += cursor->editXValue;
+        data[18]  += cursor->editXValue; data[21]  += cursor->editXValue; data[24]  += cursor->editXValue;
+        data[27]  += cursor->editXValue; data[30]  += cursor->editXValue; data[33]  += cursor->editXValue;
+        data[2]  += cursor->editZValue; data[5]  += cursor->editZValue; data[8]  += cursor->editZValue;
+        data[11] += cursor->editZValue; data[14] += cursor->editZValue; data[17] += cursor->editZValue;
+        data[20] += cursor->editZValue; data[23] += cursor->editZValue; data[26] += cursor->editZValue;
+        data[29] += cursor->editZValue; data[32] += cursor->editZValue; data[35] += cursor->editZValue;
+        glUnmapBuffer(GL_ARRAY_BUFFER);
     }
 }
 
 /**
  * Change the height of the floor grid
  */
-static void updateGridHeight(Grid* grid){
+static void updateGridHeight(Grid* grid, Cursor* cursor){
 
     //Modify the value
-    glBindBuffer(GL_ARRAY_BUFFER, grid->gridVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, grid->vbo);
     GLfloat *data = (GLfloat *) glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
     if (data != (GLfloat *) NULL) {
         for (int i = 0; i < (grid->numberOfLines*2); ++i) {
             data[i * 3 + 1 ] =grid->heightValue ;
         }
+        glUnmapBuffer(GL_ARRAY_BUFFER);
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, cursor->vbo);
+    GLfloat *data2 = (GLfloat *) glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+    if (data2 != (GLfloat *) NULL) {
+        data2[7] = data2[4] = grid->heightValue;
+        data2[1]   =  data2[4] + 0.2f;
+        data2[10]  =  data2[13] = data2[4]; data2[16] = data2[4] + 0.2f;
+        data2[19]  =   data2[22]= data2[4] ; data2[25] = data2[4] + 0.2f;
+        data2[28]  = grid->heightValue + 0.2f; data2[31] = data2[34]  = grid->heightValue ;
         glUnmapBuffer(GL_ARRAY_BUFFER);
     }
 }
@@ -309,15 +350,13 @@ static void updateMovement(Camera* camera) {
         camera->pos[2] += -camera->velocity.v[2] *0.02f;
         camera->pos[1] += -camera->velocity.v[1] *0.02f;
         if(dot(camera->velocity,camera->velocity) < 1e-9) {
-            printf("Stopping\n");
             camera->velocity.v[0] = camera->velocity.v[2] = camera->velocity.v[1] = 0.0f;
             camera->pushing = 0;
             camera->moving = false;
         }
     }
-
     if(camera->pushing){
-        camera->pushing = -1.0f;
+        camera->pushing = -1;
     }
 
     calculateViewMatrix(camera);
