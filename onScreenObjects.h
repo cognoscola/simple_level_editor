@@ -8,6 +8,7 @@
 #include <GL/glew.h>
 
 struct Grid{
+
     GLuint vao;
     GLuint vbo;
     int numberOfLines;
@@ -19,9 +20,12 @@ struct Cursor{
 
     GLuint vao;
     GLuint vbo;
+    GLfloat* data;
     GLfloat editZValue;
     GLfloat editXValue;
-    GLfloat* data;
+    GLfloat Z;
+    GLfloat X;
+    GLfloat Y;
 };
 
 

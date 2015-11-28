@@ -1,7 +1,7 @@
 #include "main.h"
 
-static void updateCursorXZPosition(Cursor* cursor);
-
+static void updateCursorLocation(Cursor* cursor);
+static void setCursorCoordinates(GLfloat* data, Cursor* cursor);
 
 
 void createVertexBufferObject(GLuint *name, size_t size, GLfloat *data){
@@ -21,6 +21,7 @@ void createVertexArrayObjet(GLuint* name, GLuint* bufferObject, GLint dimensions
 }
 
 
+
 int main () {
 
     //initialize window variables
@@ -33,28 +34,13 @@ int main () {
     assert(start_gl());
 
     cursor = {};
-    GLfloat points[]  = {
-            0.0f, 0.5f, -0.5f,
-            0.5f, -0.5f, -0.5f,
-            -0.5f, -0.5f, -0.5f,
 
-            0.5f, -0.5f, -0.5f,
-            0.5, -0.5f, 0.5f,
-            0.5f, 0.5f, 0.0f,
-
-            -0.5f, -0.5f, 0.5f,
-            -0.5f,-0.5f, -0.5f,
-            -0.5f,0.5f, 0.0f,
-
-            0.0f, 0.5f, 0.5f,
-            0.5f, -0.5f, 0.5f,
-            -0.5f, -0.5f, 0.5f,
-    };
-    cursor.data = points;
+    cursor.data = new GLfloat[36];
+    setCursorCoordinates(cursor.data, &cursor);
 
     grid = {};
     grid.numberOfLines = 100;
-    grid.heightValue = -0.5f;
+    grid.heightValue = 0.0f;
 
     /**Triangle Coordinates*/
 
@@ -89,7 +75,6 @@ int main () {
     glfwSetInputMode(hardware.window,GLFW_STICKY_KEYS, 1);
 
     /* get version info */
-
     glEnable (GL_DEPTH_TEST); /* enable depth-testing */
     glDepthFunc (GL_LESS);
 
@@ -138,6 +123,10 @@ int main () {
 
     glUniformMatrix4fv(camera.view_mat_location, 1, GL_FALSE, camera.viewMatrix.m);
     glUniformMatrix4fv(camera.proj_mat_location, 1, GL_FALSE, proj_mat);
+
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_FRONT);
 
     while (!glfwWindowShouldClose (hardware.window)) {
         updateMovement(&camera);
@@ -225,45 +214,36 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
             camera.move_angle =  action == GLFW_PRESS ? 90:camera.move_angle;
             break;
         case GLFW_KEY_PAGE_UP:
-            if (action == GLFW_PRESS) { grid.heightValue += 1.0f;updateGridHeight(&grid, &cursor);}
+            if (action == GLFW_PRESS) {
+                cursor.Y = grid.heightValue += 1.0f;
+                updateGridHeight(&grid, &cursor);
+            }
             break;
         case GLFW_KEY_PAGE_DOWN:
-            if (action == GLFW_PRESS) { grid.heightValue -= 1.0f; updateGridHeight(&grid, &cursor);}
+            if (action == GLFW_PRESS) {
+                cursor.Y = grid.heightValue -= 1.0f;
+                updateGridHeight(&grid, &cursor);
+            }
             break;
         case GLFW_KEY_UP:
             if(action == GLFW_PRESS || action == GLFW_REPEAT)
-            { cursor.editZValue = 1.0f;cursor.editXValue = 0;updateCursorXZPosition(&cursor); }
+            { cursor.Z += 1.0f; updateCursorLocation(&cursor); }
             break;
         case GLFW_KEY_DOWN:
             if(action == GLFW_PRESS || action == GLFW_REPEAT)
-            { cursor.editZValue = -1.0f;cursor.editXValue = 0;updateCursorXZPosition(&cursor); }
+            { cursor.Z -= 1.0f;updateCursorLocation(&cursor); }
             break;
         case GLFW_KEY_LEFT:
             if(action == GLFW_PRESS || action == GLFW_REPEAT)
-            { cursor.editXValue = 1.0f;cursor.editZValue = 0;updateCursorXZPosition(&cursor);}
+            { cursor.X += 1.0f; updateCursorLocation(&cursor);}
             break;
         case GLFW_KEY_RIGHT:
             if(action == GLFW_PRESS || action == GLFW_REPEAT)
-            { cursor.editXValue = -1.0f;cursor.editZValue = 0;updateCursorXZPosition(&cursor);}
+            { cursor.X -= 1.0f;updateCursorLocation(&cursor);}
             break;
     }
 }
 
-static void updateCursorXZPosition(Cursor* cursor){
-    glBindBuffer(GL_ARRAY_BUFFER, cursor->vbo);
-    GLfloat *data = (GLfloat *) glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
-    if (data != (GLfloat *) NULL) {
-        data[0]  += cursor->editXValue; data[3]  += cursor->editXValue; data[6]  += cursor->editXValue;
-        data[9]  += cursor->editXValue; data[12]  += cursor->editXValue; data[15]  += cursor->editXValue;
-        data[18]  += cursor->editXValue; data[21]  += cursor->editXValue; data[24]  += cursor->editXValue;
-        data[27]  += cursor->editXValue; data[30]  += cursor->editXValue; data[33]  += cursor->editXValue;
-        data[2]  += cursor->editZValue; data[5]  += cursor->editZValue; data[8]  += cursor->editZValue;
-        data[11] += cursor->editZValue; data[14] += cursor->editZValue; data[17] += cursor->editZValue;
-        data[20] += cursor->editZValue; data[23] += cursor->editZValue; data[26] += cursor->editZValue;
-        data[29] += cursor->editZValue; data[32] += cursor->editZValue; data[35] += cursor->editZValue;
-        glUnmapBuffer(GL_ARRAY_BUFFER);
-    }
-}
 
 /**
  * Change the height of the floor grid
@@ -279,17 +259,73 @@ static void updateGridHeight(Grid* grid, Cursor* cursor){
         }
         glUnmapBuffer(GL_ARRAY_BUFFER);
     }
+    updateCursorLocation(cursor);
+
+}
+
+static void updateCursorLocation(Cursor* cursor){
 
     glBindBuffer(GL_ARRAY_BUFFER, cursor->vbo);
-    GLfloat *data2 = (GLfloat *) glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
-    if (data2 != (GLfloat *) NULL) {
-        data2[7] = data2[4] = grid->heightValue;
-        data2[1]   =  data2[4] + 0.2f;
-        data2[10]  =  data2[13] = data2[4]; data2[16] = data2[4] + 0.2f;
-        data2[19]  =   data2[22]= data2[4] ; data2[25] = data2[4] + 0.2f;
-        data2[28]  = grid->heightValue + 0.2f; data2[31] = data2[34]  = grid->heightValue ;
+    GLfloat *data = (GLfloat *) glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+    if (data != (GLfloat *) NULL) {
+        setCursorCoordinates(data, cursor);
         glUnmapBuffer(GL_ARRAY_BUFFER);
     }
+}
+
+static void setCursorCoordinates(GLfloat* data, Cursor* cursor){
+    data[0] = cursor->X;
+    data[1] = cursor->Y +0.2f;
+    data[2] = cursor->Z -0.5f;
+
+    data[3] = cursor->X + 0.5f;
+    data[4] = cursor->Y ;
+    data[5] = cursor->Z -0.5f;
+
+    data[6] = cursor->X - 0.5f;
+    data[7] = cursor->Y ;
+    data[8] = cursor->Z -0.5f;
+
+    //2nd triangle
+    data[9] = cursor->X + 0.5f;
+    data[10] = cursor->Y + 0.2f;
+    data[11] = cursor->Z;
+
+    data[12] = cursor->X + 0.5f;
+    data[13] = cursor->Y ;
+    data[14] = cursor->Z +0.5f;
+
+    data[15] = cursor->X + 0.5f;
+    data[16] = cursor->Y ;
+    data[17] = cursor->Z - 0.5f;
+
+    //third triangle
+    data[18] = cursor->X ;
+    data[19] = cursor->Y + 0.2f;
+    data[20] = cursor->Z + 0.5f;
+
+    data[21] = cursor->X - 0.5f;
+    data[22] = cursor->Y;
+    data[23] = cursor->Z + 0.5f;
+
+    data[24] = cursor->X + 0.5f;;
+    data[25] = cursor->Y;
+    data[26] = cursor->Z + 0.5f;
+
+    //fourth triangle
+    data[27] = cursor->X - 0.5f;
+    data[28] = cursor->Y + 0.2f;
+    data[29] = cursor->Z;
+
+    data[30] = cursor->X - 0.5f;
+    data[31] = cursor->Y;
+    data[32] = cursor->Z - 0.5f;
+
+    data[33] = cursor->X - 0.5f;
+    data[34] = cursor->Y;
+    data[35] = cursor->Z + 0.5f;
+
+
 }
 
 /**
