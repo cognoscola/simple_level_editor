@@ -1,73 +1,16 @@
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
-#include <stdio.h>
-#include <math.h>
-#include <utils/maths_funcs.h>
-#include <utils/quat_funcs.h>
-
-struct Hardware{
-
-    GLFWmonitor *mon;
-    const GLFWvidmode* vmode;
-};
-struct Camera{
-
-    float pos[3]; // don't start at zero, or we will be too close
-    float yaw = 0.0f; // y-rotation in degrees
-    float pitch = 0.0f;
-    float signal_amplifier = 0.1f;
-    mat4 T;
-    mat4 Rpitch;
-    mat4 Ryaw;
-    mat4 viewMatrix;
-
-    GLint view_mat_location;
-    GLint proj_mat_location;
-
-    float quatYaw[4];
-    float quatPitch[4];
-
-    int pushing; //-1 slowing down, +1 accelerating , 0 = idle
-    bool moving; //velocity != 0
-    double move_angle;
-    double look_angle;
-
-    vec3 velocity; //actor's velocity
-};
-
-struct Input{
-    bool wPressed;
-    bool sPressed;
-    bool aPressed;
-    bool dPressed;
-};
-
-
-struct Grid{
-    GLuint gridVbo;
-    int numberOfLines;
-    GLfloat heightValue;
-    GLfloat* gridData;
-
-};
-
-
-static Grid grid;
-static Camera camera;
-static Hardware hardware;
-static Input input;
-
-static void cursor_position_callback(GLFWwindow *window, double xpos, double ypos);
-static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
-static void calculateViewMatrix(Camera* camera);
-static void updateMovement(Camera* camera);
-static void updateGridHeight(Grid* grid);
-
+#include "main.h"
 
 int main () {
-    GLFWwindow* window = NULL;
-    const GLubyte* renderer;
-    const GLubyte* version;
+
+    hardware = {};
+
+    //start logger system
+    assert(restart_gl_log());
+
+    //create our main window
+    assert(start_gl());
+
+
     GLuint vao;
     GLuint vbo;
 
@@ -140,45 +83,15 @@ int main () {
     GLuint vs, fs;
     GLuint shader_programme;
 
-    /* start GL context and O/S window using the GLFW helper library */
-    if (!glfwInit ()) {
-        fprintf (stderr, "ERROR: could not start GLFW3\n");
-        return 1;
-    }
-
-    hardware = {};
-
-    hardware.mon = glfwGetPrimaryMonitor();
-    hardware.vmode = glfwGetVideoMode(hardware.mon);
-
-    window = glfwCreateWindow (hardware.vmode->width, hardware.vmode->height, "Hello World", hardware.mon, NULL);
-    if (!window) {
-        fprintf (stderr, "ERROR: could not open window with GLFW3\n");
-        glfwTerminate();
-        return 1;
-    }
-
-    glfwMakeContextCurrent (window);
-
-    /* start GLEW extension handler */
-    glewExperimental = GL_TRUE;
-    glewInit ();
-
-
-    glfwSetCursorPosCallback(window,cursor_position_callback);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    glfwSetKeyCallback(window, key_callback);
-    glfwSetInputMode(window,GLFW_STICKY_KEYS, 1);
+    glfwSetCursorPosCallback(hardware.window,cursor_position_callback);
+    glfwSetInputMode(hardware.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetKeyCallback(hardware.window, key_callback);
+    glfwSetInputMode(hardware.window,GLFW_STICKY_KEYS, 1);
 
     /* get version info */
-    renderer = glGetString (GL_RENDERER); /* get renderer string */
-    version = glGetString (GL_VERSION); /* version as a string */
-    printf ("Renderer: %s\n", renderer);
-    printf ("OpenGL version supported %s\n", version);
 
     glEnable (GL_DEPTH_TEST); /* enable depth-testing */
     glDepthFunc (GL_LESS);
-
 
     //generate buffers for our stuff
     glGenBuffers (1, &grid.gridVbo);
@@ -257,8 +170,7 @@ int main () {
     glUniformMatrix4fv(camera.view_mat_location, 1, GL_FALSE, camera.viewMatrix.m);
     glUniformMatrix4fv(camera.proj_mat_location, 1, GL_FALSE, proj_mat);
 
-
-    while (!glfwWindowShouldClose (window)) {
+    while (!glfwWindowShouldClose (hardware.window)) {
         updateMovement(&camera);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -272,10 +184,10 @@ int main () {
         glDrawArrays(GL_LINES, 0, grid.numberOfLines* 2);
 
         glfwPollEvents();
-        if (GLFW_PRESS == glfwGetKey(window, GLFW_KEY_ESCAPE)) {
-            glfwSetWindowShouldClose(window, 1);
+        if (GLFW_PRESS == glfwGetKey(hardware.window, GLFW_KEY_ESCAPE)) {
+            glfwSetWindowShouldClose(hardware.window, 1);
         }
-        glfwSwapBuffers(window);
+        glfwSwapBuffers(hardware.window);
     }
 
     /* close GL context and any other GLFW resources */
