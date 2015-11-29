@@ -1,20 +1,30 @@
 #include "main.h"
 
-
 void createVertexBufferObject(GLuint *name, size_t size, GLfloat *data){
-
     glGenBuffers (1, name);
     glBindBuffer (GL_ARRAY_BUFFER, *name);
     glBufferData (GL_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
 }
 
 void createVertexArrayObjet(GLuint* name, GLuint* bufferObject, GLint dimensions){
+
     glGenVertexArrays (1, name);
     glBindVertexArray (*name);
     glEnableVertexAttribArray (0);
     glBindBuffer (GL_ARRAY_BUFFER, *bufferObject);
     glVertexAttribPointer (0, dimensions, GL_FLOAT, GL_FALSE, 0, NULL);
+    glEnableVertexAttribArray(0);
+
 }
+
+void setColourMesh(GLuint* vao, GLuint* bufferObject, GLint dimensions, GLuint* attributeIndex){
+
+    glBindVertexArray (*vao);
+    glBindBuffer (GL_ARRAY_BUFFER, *bufferObject);
+    glVertexAttribPointer (*attributeIndex, dimensions, GL_FLOAT, GL_FALSE, 0, NULL);
+    glEnableVertexAttribArray(1);
+}
+
 
 int main () {
 
@@ -27,37 +37,63 @@ int main () {
     assert(start_gl());
 
     cursor = {};
-    cursor.data = new GLfloat[36];
-    setCursorCoordinates(cursor.data, &cursor);
+    cursor.vertexData = new GLfloat[36 + (3 * 6)];
+    setCursorCoordinates(cursor.vertexData, &cursor);
+    GLfloat*cursorColourData = new GLfloat[36 + (3 * 6)];
+    {
+        for (int i = 0; i < 12; ++i) {
+            cursorColourData[i * 3] = 0.5f;
+            cursorColourData[i * 3 + 1] = 0.0f;
+            cursorColourData[i * 3 + 2] = 0.5f;
+        };
+        for (int j = 12; j < 17; ++j) {
+            cursorColourData[j * 3] = 0.5f;
+            cursorColourData[j * 3 + 1] = 0.5f;
+            cursorColourData[j * 3 + 2] = 0.5f;
+        }
+    }
 
     grid = {};
     grid.numberOfLines = 100;
     grid.heightValue = 0.0f;
 
-    /**Triangle Coordinates*/
-
-    //Create our gridPoints coordinates
-    grid.data = new GLfloat[grid.numberOfLines * 6];
-    for (int i = 0; i < grid.numberOfLines; ++i) {
-        //draw the lines parallel to the x axis
-        if (i < 50) {
-            grid.data[i * 6     ] = i - 25;  //
-            grid.data[i * 6 + 1 ] = grid.heightValue;
-            grid.data[i * 6 + 2 ] = -100.f;
-            grid.data[i * 6 + 3 ] = i - 25;  //
-            grid.data[i * 6 + 4 ] = grid.heightValue;
-            grid.data[i * 6 + 5 ] = 100.0f;
-        }
-        //draw the lines parallel to the z axis;
-        if (i >= 50) {
-            grid.data[i * 6     ] =  -100.0f;  //
-            grid.data[i * 6 + 1 ] =  grid.heightValue;
-            grid.data[i * 6 + 2 ] = i - 50 - 25.0f;
-            grid.data[i * 6 + 3 ] =  100.0f;  //
-            grid.data[i * 6 + 4 ] =  grid.heightValue;
-            grid.data[i * 6 + 5 ] = i - 50 - 25.0f;
+    GLfloat *gridColourData = new GLfloat[100 * 2 * 3];
+    {
+        int totalVerteces = 100 * 2;
+        for (int i = 0; i < totalVerteces; ++i) {
+            gridColourData[i * 3  ]  = 0.5f;
+            gridColourData[i * 3 + 1]  = 0.0f;
+            gridColourData[i * 3 + 2]  = 0.5f;
         }
     }
+
+    //Create our gridPoints coordinates
+    GLfloat *gridVertexData = new GLfloat[grid.numberOfLines * 6];
+    {
+        for (int i = 0; i < grid.numberOfLines; ++i) {
+            //draw the lines parallel to the x axis
+            if (i < 50) {
+                gridVertexData[i * 6] = i - 25;  //
+                gridVertexData[i * 6 + 1] = grid.heightValue;
+                gridVertexData[i * 6 + 2] = -100.f;
+                gridVertexData[i * 6 + 3] = i - 25;  //
+                gridVertexData[i * 6 + 4] = grid.heightValue;
+                gridVertexData[i * 6 + 5] = 100.0f;
+            }
+            //draw the lines parallel to the z axis;
+            if (i >= 50) {
+                gridVertexData[i * 6] = -100.0f;  //
+                gridVertexData[i * 6 + 1] = grid.heightValue;
+                gridVertexData[i * 6 + 2] = i - 50 - 25.0f;
+                gridVertexData[i * 6 + 3] = 100.0f;  //
+                gridVertexData[i * 6 + 4] = grid.heightValue;
+                gridVertexData[i * 6 + 5] = i - 50 - 25.0f;
+            }
+        }
+    }
+
+//    GLfloat* gridColourData = new GLfloat
+
 
     GLuint shader_program = create_programme_from_files(VERTEX_SHADER, FRAGMENT_SHADER);
 
@@ -70,10 +106,22 @@ int main () {
     glEnable (GL_DEPTH_TEST); /* enable depth-testing */
     glDepthFunc (GL_LESS);
 
-    createVertexBufferObject(&grid.vbo, grid.numberOfLines * 6 * sizeof(GLfloat), grid.data);
-    createVertexArrayObjet(&grid.vao, &grid.vbo, 3);
-    createVertexBufferObject(&cursor.vbo, 36 * sizeof(GLfloat), cursor.data);
-    createVertexArrayObjet(&cursor.vao, &cursor.vbo, 3);
+    createVertexBufferObject(&grid.vertexVbo, grid.numberOfLines * 6 * sizeof(GLfloat), gridVertexData);
+    createVertexBufferObject(&grid.colorVbo,  grid.numberOfLines * 6 * sizeof(GLfloat), gridColourData);
+
+    createVertexBufferObject(&cursor.vertexVbo, (36 + (3 * 6)) * sizeof(GLfloat), cursor.vertexData);
+    createVertexBufferObject(&cursor.colorVbo, (36 + (3 * 6)) * sizeof(GLfloat), cursorColourData);
+
+    createVertexArrayObjet(&grid.vao, &grid.vertexVbo, 3);
+    createVertexArrayObjet(&cursor.vao, &cursor.vertexVbo, 3);
+
+    cursor.colorAttributeIndex = 1;
+    grid.colorAttributeIndex = 1;
+    setColourMesh(&cursor.vao, &cursor.colorVbo, 3,&cursor.colorAttributeIndex);
+    setColourMesh(&grid.vao, &grid.colorVbo, 3, &grid.colorAttributeIndex);
+
+    free(cursor.vertexData);
+    free(cursorColourData);
 
     // camera stuff
 #define PI 3.14159265359
@@ -108,8 +156,6 @@ int main () {
     camera.Ryaw = rotate_y_deg (identity_mat4 (), -camera.yaw);
     camera.viewMatrix = camera.Rpitch * camera.T;
 
-//    cursor.Z = 10.0f;
-//    cursor.T = translate (identity_mat4 (), vec3 (-cursor.X, -cursor.Y, -cursor.Z));
     cursor.yaw = cursor.roll = cursor.pitch += 0.0f;
     calculateCursorRotations(&cursor);
 
@@ -122,8 +168,8 @@ int main () {
     glUniformMatrix4fv(camera.proj_mat_location, 1, GL_FALSE, proj_mat);
 
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-//    glEnable(GL_CULL_FACE);
-//    glCullFace(GL_FRONT);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_FRONT);
 
     while (!glfwWindowShouldClose (hardware.window)) {
         updateMovement(&camera);
@@ -136,7 +182,7 @@ int main () {
 
         glUniformMatrix4fv(camera.view_mat_location, 1, GL_FALSE, cursor.viewMatrix.m);
         glBindVertexArray(cursor.vao);
-        glDrawArrays(GL_TRIANGLES, 0, 12);
+        glDrawArrays(GL_TRIANGLES, 0, 18);
 
         glUniformMatrix4fv(camera.view_mat_location, 1, GL_FALSE, camera.viewMatrix.m);
         glBindVertexArray(grid.vao);
@@ -326,7 +372,7 @@ static void cursor_position_callback(GLFWwindow *window, double xpos, double ypo
 static void updateGridHeight(Grid* grid, Cursor* cursor){
 
     //Modify the value
-    glBindBuffer(GL_ARRAY_BUFFER, grid->vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, grid->vertexVbo);
     GLfloat *data = (GLfloat *) glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
     if (data != (GLfloat *) NULL) {
         for (int i = 0; i < (grid->numberOfLines*2); ++i) {
@@ -340,7 +386,7 @@ static void updateGridHeight(Grid* grid, Cursor* cursor){
 
 static void updateScales(Cursor *cursor){
 
-    glBindBuffer(GL_ARRAY_BUFFER, cursor->vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, cursor->vertexVbo);
     GLfloat *data = (GLfloat *) glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
     if (data != (GLfloat *) NULL) {
         setCursorCoordinates(data, cursor);
@@ -350,6 +396,7 @@ static void updateScales(Cursor *cursor){
 
 static void setCursorCoordinates(GLfloat* data, Cursor* cursor){
 
+    ///first triangle
     data[0] = 0.0f;
     data[1] = 0.2f;
     data[2] = - cursor->Zs*0.5f;
@@ -361,7 +408,7 @@ static void setCursorCoordinates(GLfloat* data, Cursor* cursor){
     data[8] = - cursor->Zs*0.5f;
 
     //2nd triangle
-    data[9]  =  +cursor->Xs*0.5f;
+    data[9]  =  + cursor->Xs*0.5f;
     data[10] =  + 0.2f;
     data[11] =  0.0f;
     data[12] =  + cursor->Xs*0.5f;
@@ -393,6 +440,26 @@ static void setCursorCoordinates(GLfloat* data, Cursor* cursor){
     data[34] = 0.0f;
     data[35] =  + cursor->Zs* 0.5f;
 
+    //middle square
+    data[36] = + cursor->Xs*0.5f;
+    data[37] = 0.0f;
+    data[38] = - cursor->Zs*0.5f;
+    data[39] = -cursor->Xs* 0.5f;
+    data[40] = 0.0f;
+    data[41] = + cursor->Zs* 0.5f;
+    data[42] = - cursor->Xs*0.5f;
+    data[43] = 0.0f;
+    data[44] = - cursor->Zs*0.5f;
+
+    data[45] = + cursor->Xs*0.5f;
+    data[46] = 0.0f;
+    data[47] = - cursor->Zs*0.5f;
+    data[48] = + cursor->Xs*0.5f;
+    data[49] = 0.0f;
+    data[50] = + cursor->Zs*0.5f;
+    data[51] = - cursor->Xs* 0.5f;
+    data[52] = 0.0f;
+    data[53] = + cursor->Zs* 0.5f;
 }
 
 /**
@@ -473,6 +540,7 @@ static void calculateCursorRotations(Cursor *cursor){
     create_versor(quat, cursor->roll, 0.0f, 0.0f, 1.0f);
     quat_to_mat4(cursor->Rroll.m, quat);
 }
+
 
 
 

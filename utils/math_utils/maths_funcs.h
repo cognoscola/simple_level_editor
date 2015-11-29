@@ -62,7 +62,7 @@ struct vec3 {
     // because users expect this too
     vec3& operator= (const vec3& rhs);
 
-    // internal data
+    // internal vertexData
     float v[3];
 };
 

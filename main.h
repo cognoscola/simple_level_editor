@@ -56,7 +56,6 @@ struct Input{
     bool dPressed;
 };
 
-
 static Cursor cursor;
 static Grid grid;
 static Camera camera;

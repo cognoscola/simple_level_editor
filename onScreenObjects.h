@@ -11,17 +11,23 @@
 struct Grid{
 
     GLuint vao;
-    GLuint vbo;
+    GLuint vertexVbo;
+    GLuint colorVbo;
+    GLuint colorAttributeIndex;
     int numberOfLines;
     GLfloat heightValue;
-    GLfloat* data;
 };
 
 struct Cursor{
 
+
     GLuint vao;
-    GLuint vbo;
-    GLfloat* data;
+    GLuint vertexVbo;
+    GLuint colorVbo;
+    GLfloat*vertexData;
+
+    GLuint colorAttributeIndex;
+
     GLfloat Z;
     GLfloat X;
     GLfloat Y;
