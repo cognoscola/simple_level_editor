@@ -1,9 +1,5 @@
 #include "main.h"
 
-static void updateCursorLocation(Cursor* cursor);
-static void setCursorCoordinates(GLfloat* data, Cursor* cursor);
-static void calculateCursorRotations(Cursor *cursor);
-
 
 void createVertexBufferObject(GLuint *name, size_t size, GLfloat *data){
 
@@ -13,14 +9,12 @@ void createVertexBufferObject(GLuint *name, size_t size, GLfloat *data){
 }
 
 void createVertexArrayObjet(GLuint* name, GLuint* bufferObject, GLint dimensions){
-
     glGenVertexArrays (1, name);
     glBindVertexArray (*name);
     glEnableVertexAttribArray (0);
     glBindBuffer (GL_ARRAY_BUFFER, *bufferObject);
     glVertexAttribPointer (0, dimensions, GL_FLOAT, GL_FALSE, 0, NULL);
 }
-
 
 int main () {
 
@@ -33,7 +27,6 @@ int main () {
     assert(start_gl());
 
     cursor = {};
-
     cursor.data = new GLfloat[36];
     setCursorCoordinates(cursor.data, &cursor);
 
@@ -115,6 +108,8 @@ int main () {
     camera.Ryaw = rotate_y_deg (identity_mat4 (), -camera.yaw);
     camera.viewMatrix = camera.Rpitch * camera.T;
 
+//    cursor.Z = 10.0f;
+//    cursor.T = translate (identity_mat4 (), vec3 (-cursor.X, -cursor.Y, -cursor.Z));
     cursor.yaw = cursor.roll = cursor.pitch += 0.0f;
     calculateCursorRotations(&cursor);
 
@@ -132,6 +127,8 @@ int main () {
 
     while (!glfwWindowShouldClose (hardware.window)) {
         updateMovement(&camera);
+        calculateViewMatrix(&camera, &cursor);
+        //set the new view matrix @ the shader level
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glViewport(0, 0, hardware.vmode->width, hardware.vmode->height);
@@ -156,41 +153,6 @@ int main () {
     glfwTerminate();
     return 0;
 }
-
-/**
- * Called every time the cursor moves. It is used to calculate the Camera's direction
- * in window - the window holding the cursor
- * in xpos   - the xposition of the cursor on the screen
- * in ypos   - the yposition of the curose on the screen
- */
-static void cursor_position_callback(GLFWwindow *window, double xpos, double ypos) {
-
-    //calculate pitch
-    static double  previous_ypos = ypos;
-    double position_y_difference = ypos - previous_ypos;
-    previous_ypos = ypos;
-
-    //calculate yaw
-    static double previous_xpos = xpos;
-    double position_x_difference = xpos - previous_xpos;
-    previous_xpos = xpos;
-
-    //reduce signal
-    camera.yaw += position_x_difference *camera.signal_amplifier;
-    camera.pitch += position_y_difference *camera.signal_amplifier;
-
-    //calculate rotation sequence
-    create_versor(camera.quatPitch, camera.pitch, 1.0f, 0.0f, 0.0f);
-    create_versor(camera.quatYaw, camera.yaw, 0.0f, 1.0f, 0.0f);
-    quat_to_mat4(camera.Rpitch.m, camera.quatPitch);
-    quat_to_mat4(camera.Ryaw.m, camera.quatYaw);
-
-//    mult_quat_quat(camera.resultQuat, camera.quatYaw, camera.quatPitch);
-//    mult_quat_quat(camera.resultQuat, camera.quatYaw, camera.quatPitch);
-//    quat_to_mat4(camera.R.m, camera.resultQuat);
-
-}
-
 
 /**
  * Called everytime we press a key on the keyboard
@@ -247,10 +209,12 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
         case GLFW_KEY_UP:
             if(action == GLFW_PRESS || action == GLFW_REPEAT) {
                 switch (state) {
-                    case STATE_POSITION:cursor.Z += 1.0f;updateCursorLocation(&cursor);break;
+                    case STATE_POSITION:
+                        cursor.Z += 1.0f;
+                        break;
                     case STATE_SCALE:
                         cursor.Xs += 0.2f;
-                        updateCursorLocation(&cursor);
+                        updateScales(&cursor);
                         break;
                     case STATE_ORIENTATION:
                         cursor.pitch += 45.0f;
@@ -263,10 +227,12 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
             if(action == GLFW_PRESS || action == GLFW_REPEAT)
             {
                 switch (state) {
-                    case STATE_POSITION:cursor.Z -= 1.0f;updateCursorLocation(&cursor);break;
+                    case STATE_POSITION:
+                        cursor.Z -= 1.0f;
+                        break;
                     case STATE_SCALE:
                         cursor.Xs -= 0.2f;
-                        updateCursorLocation(&cursor);
+                        updateScales(&cursor);
                         break;
                     case STATE_ORIENTATION:
                         cursor.pitch -= 45.0f;
@@ -280,11 +246,11 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
             {
                 switch (state) {
                     case STATE_POSITION:
-                        cursor.X += 1.0f; updateCursorLocation(&cursor);
+                        cursor.X += 1.0f;
                         break;
                     case STATE_SCALE:
                         cursor.Zs += 0.2f;
-                        updateCursorLocation(&cursor);
+                        updateScales(&cursor);
                         break;
                     case STATE_ORIENTATION:
                         cursor.yaw += 45.0f;
@@ -298,11 +264,11 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
             {
                 switch (state) {
                     case STATE_POSITION:
-                        cursor.X -= 1.0f;updateCursorLocation(&cursor);
+                        cursor.X -= 1.0f;
                         break;
                     case STATE_SCALE:
                         cursor.Zs -= 0.2f;
-                        updateCursorLocation(&cursor);
+                        updateScales(&cursor);
                         break;
                     case STATE_ORIENTATION:
                         cursor.yaw -= 45.0f;
@@ -315,6 +281,43 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
         case GLFW_KEY_2:state = STATE_ORIENTATION;break;
         case GLFW_KEY_3:state = STATE_SCALE;      break;
     }
+}
+
+
+/**
+ * Called every time the cursor moves. It is used to calculate the Camera's direction
+ * in window - the window holding the cursor
+ * in xpos   - the xposition of the cursor on the screen
+ * in ypos   - the yposition of the curose on the screen
+ */
+static void cursor_position_callback(GLFWwindow *window, double xpos, double ypos) {
+
+    GLfloat quat[] = {0.0f,0.0f,0.0f,0.0f};
+
+    //calculate pitch
+    static double  previous_ypos = ypos;
+    double position_y_difference = ypos - previous_ypos;
+    previous_ypos = ypos;
+
+    //calculate yaw
+    static double previous_xpos = xpos;
+    double position_x_difference = xpos - previous_xpos;
+    previous_xpos = xpos;
+
+    //reduce signal
+    camera.yaw += position_x_difference *camera.signal_amplifier;
+    camera.pitch += position_y_difference *camera.signal_amplifier;
+
+    //calculate rotation sequence
+    create_versor(quat, camera.pitch, 1.0f, 0.0f, 0.0f);
+    quat_to_mat4(camera.Rpitch.m, quat);
+    create_versor(quat, camera.yaw, 0.0f, 1.0f, 0.0f);
+    quat_to_mat4(camera.Ryaw.m,quat);
+
+//    mult_quat_quat(camera.resultQuat, camera.quatYaw, camera.quatPitch);
+//    mult_quat_quat(camera.resultQuat, camera.quatYaw, camera.quatPitch);
+//    quat_to_mat4(camera.R.m, camera.resultQuat);
+
 }
 
 /**
@@ -331,11 +334,11 @@ static void updateGridHeight(Grid* grid, Cursor* cursor){
         }
         glUnmapBuffer(GL_ARRAY_BUFFER);
     }
-    updateCursorLocation(cursor);
-
+//    updateScales(cursor);
+//
 }
 
-static void updateCursorLocation(Cursor* cursor){
+static void updateScales(Cursor *cursor){
 
     glBindBuffer(GL_ARRAY_BUFFER, cursor->vbo);
     GLfloat *data = (GLfloat *) glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
@@ -346,57 +349,60 @@ static void updateCursorLocation(Cursor* cursor){
 }
 
 static void setCursorCoordinates(GLfloat* data, Cursor* cursor){
-    data[0] = cursor->X;
-    data[1] = cursor->Y + 0.2f;
-    data[2] = cursor->Z - cursor->Zs*0.5f;
-    data[3] = cursor->X + cursor->Xs*0.5f;
-    data[4] = cursor->Y ;
-    data[5] = cursor->Z - cursor->Zs*0.5f;
-    data[6] = cursor->X -cursor->Xs*0.5f;
-    data[7] = cursor->Y ;
-    data[8] = cursor->Z - cursor->Zs*0.5f;
+
+    data[0] = 0.0f;
+    data[1] = 0.2f;
+    data[2] = - cursor->Zs*0.5f;
+    data[3] = + cursor->Xs*0.5f;
+    data[4] = 0.0f;
+    data[5] = - cursor->Zs*0.5f;
+    data[6] = - cursor->Xs*0.5f;
+    data[7] = 0.0f;
+    data[8] = - cursor->Zs*0.5f;
 
     //2nd triangle
-    data[9] = cursor->X +cursor->Xs*0.5f;
-    data[10] = cursor->Y + 0.2f;
-    data[11] = cursor->Z;
-    data[12] = cursor->X + cursor->Xs*0.5f;
-    data[13] = cursor->Y ;
-    data[14] = cursor->Z + cursor->Zs*0.5f;
-    data[15] = cursor->X + cursor->Xs*0.5f;
-    data[16] = cursor->Y ;
-    data[17] = cursor->Z - cursor->Zs* 0.5f;
+    data[9]  =  +cursor->Xs*0.5f;
+    data[10] =  + 0.2f;
+    data[11] =  0.0f;
+    data[12] =  + cursor->Xs*0.5f;
+    data[13] =  0.0f;
+    data[14] =  + cursor->Zs*0.5f;
+    data[15] =  + cursor->Xs*0.5f;
+    data[16] =  0.0f;
+    data[17] =  - cursor->Zs* 0.5f;
 
     //third triangle
-    data[18] = cursor->X ;
-    data[19] = cursor->Y + 0.2f;
-    data[20] = cursor->Z +cursor->Zs*0.5f;
-    data[21] = cursor->X -cursor->Xs* 0.5f;
-    data[22] = cursor->Y;
-    data[23] = cursor->Z + cursor->Zs* 0.5f;
-    data[24] = cursor->X + cursor->Xs*0.5f;
-    data[25] = cursor->Y;
-    data[26] = cursor->Z + cursor->Zs* 0.5f;
+    data[18] = 0.0f;
+    data[19] = + 0.2f;
+    data[20] = +cursor->Zs*0.5f;
+    data[21] = -cursor->Xs* 0.5f;
+    data[22] = 0.0f;
+    data[23] = + cursor->Zs* 0.5f;
+    data[24] = + cursor->Xs*0.5f;
+    data[25] = 0.0f;
+    data[26] = + cursor->Zs* 0.5f;
 
     //fourth triangle
-    data[27] = cursor->X - cursor->Xs*0.5f;
-    data[28] = cursor->Y + 0.2f;
-    data[29] = cursor->Z;
-    data[30] = cursor->X -cursor->Xs*0.5f;
-    data[31] = cursor->Y;
-    data[32] = cursor->Z -  cursor->Zs*0.5f;
-    data[33] = cursor->X - cursor->Xs*0.5f;
-    data[34] = cursor->Y;
-    data[35] = cursor->Z + cursor->Zs* 0.5f;
+    data[27] = - cursor->Xs*0.5f;
+    data[28] = + 0.2f;
+    data[29] = 0.0f;
+    data[30] = - cursor->Xs*0.5f;
+    data[31] = 0.0f;
+    data[32] =  - cursor->Zs*0.5f;
+    data[33] =  - cursor->Xs*0.5f;
+    data[34] = 0.0f;
+    data[35] =  + cursor->Zs* 0.5f;
+
 }
 
 /**
  * calculate a new View Matrix
  */
-static void calculateViewMatrix(Camera* camera){
+static void calculateViewMatrix(Camera* camera, Cursor* cursor){
     camera->T = translate (identity_mat4 (), vec3 (-camera->pos[0], -camera->pos[1], -camera->pos[2]));
     camera->viewMatrix = camera->Rpitch * camera->Ryaw * camera->T;
-    cursor.viewMatrix =  camera->viewMatrix * cursor.Rpitch * cursor.Ryaw * cursor.Rroll;
+    cursor->T = translate (identity_mat4 (), vec3 (-cursor->X, +cursor->Y, -cursor->Z));
+    cursor->viewMatrix =   camera->viewMatrix * cursor->T *  cursor->Rpitch * cursor->Ryaw * cursor->Rroll ;
 }
 
 /**
@@ -455,9 +461,7 @@ static void updateMovement(Camera* camera) {
         camera->pushing = -1;
     }
 
-    calculateViewMatrix(camera);
-    //set the new view matrix @ the shader level
-    glUniformMatrix4fv(camera->view_mat_location, 1, GL_FALSE, camera->viewMatrix.m);
+
 }
 
 static void calculateCursorRotations(Cursor *cursor){

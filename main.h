@@ -42,9 +42,6 @@ struct Camera{
     GLint view_mat_location;
     GLint proj_mat_location;
 
-    float quatYaw[4];
-    float quatPitch[4];
-
     int pushing; //-1 slowing down, +1 accelerating , 0 = idle
     bool moving; //velocity != 0
     double move_angle;
@@ -69,9 +66,12 @@ static State state;
 
 static void cursor_position_callback(GLFWwindow *window, double xpos, double ypos);
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
-static void calculateViewMatrix(Camera* camera);
+static void calculateViewMatrix(Camera* camera, Cursor* cursor);
 static void updateMovement(Camera* camera);
 static void updateGridHeight(Grid* grid, Cursor* cursor);
+static void updateScales(Cursor *cursor);
+static void setCursorCoordinates(GLfloat* data, Cursor* cursor);
+static void calculateCursorRotations(Cursor *cursor);
 
 
 #endif //SIMPLE_LEVEL_EDITOR_MAIN_H_H
