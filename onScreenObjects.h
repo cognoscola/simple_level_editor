@@ -7,6 +7,7 @@
 
 #include <GL/glew.h>
 
+
 struct Grid{
 
     GLuint vao;
@@ -21,11 +22,23 @@ struct Cursor{
     GLuint vao;
     GLuint vbo;
     GLfloat* data;
-    GLfloat editZValue;
-    GLfloat editXValue;
     GLfloat Z;
     GLfloat X;
     GLfloat Y;
+
+    GLfloat Xs = 1.0f;
+    GLfloat Ys = 1.0f;
+    GLfloat Zs = 1.0f;
+
+    GLfloat pitch;
+    GLfloat yaw;
+    GLfloat roll;
+
+    mat4 T;
+    mat4 Ryaw;
+    mat4 Rpitch;
+    mat4 Rroll;
+    mat4 viewMatrix;
 };
 
 

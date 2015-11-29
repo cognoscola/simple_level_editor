@@ -18,9 +18,15 @@
 #include <utils/io_utils/shader_loader.h>
 #include "onScreenObjects.h"
 
-
 #define VERTEX_SHADER "/home/alvaregd/Documents/Games/simple_level_editor/shaders/grid.vert"
 #define FRAGMENT_SHADER "/home/alvaregd/Documents/Games/simple_level_editor/shaders/grid.frag"
+
+enum State{
+
+    STATE_POSITION,
+    STATE_SCALE,
+    STATE_ORIENTATION
+};
 
 struct Camera{
 
@@ -53,13 +59,13 @@ struct Input{
     bool dPressed;
 };
 
+
 static Cursor cursor;
 static Grid grid;
 static Camera camera;
 static Input input;
 Hardware hardware;
-
-
+static State state;
 
 static void cursor_position_callback(GLFWwindow *window, double xpos, double ypos);
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);

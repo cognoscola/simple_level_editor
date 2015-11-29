@@ -2,6 +2,7 @@
 
 static void updateCursorLocation(Cursor* cursor);
 static void setCursorCoordinates(GLfloat* data, Cursor* cursor);
+static void calculateCursorRotations(Cursor *cursor);
 
 
 void createVertexBufferObject(GLuint *name, size_t size, GLfloat *data){
@@ -21,14 +22,12 @@ void createVertexArrayObjet(GLuint* name, GLuint* bufferObject, GLint dimensions
 }
 
 
-
 int main () {
-
-    //initialize window variables
-    hardware = {};
 
     //start logger system
     assert(restart_gl_log());
+
+    hardware = {}; //must initialize window before starting gl stuff
 
     //create our main window
     assert(start_gl());
@@ -116,6 +115,9 @@ int main () {
     camera.Ryaw = rotate_y_deg (identity_mat4 (), -camera.yaw);
     camera.viewMatrix = camera.Rpitch * camera.T;
 
+    cursor.yaw = cursor.roll = cursor.pitch += 0.0f;
+    calculateCursorRotations(&cursor);
+
     glUseProgram(shader_program);
 
     camera.view_mat_location = glGetUniformLocation(shader_program, "view");
@@ -125,8 +127,8 @@ int main () {
     glUniformMatrix4fv(camera.proj_mat_location, 1, GL_FALSE, proj_mat);
 
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_FRONT);
+//    glEnable(GL_CULL_FACE);
+//    glCullFace(GL_FRONT);
 
     while (!glfwWindowShouldClose (hardware.window)) {
         updateMovement(&camera);
@@ -135,9 +137,11 @@ int main () {
         glViewport(0, 0, hardware.vmode->width, hardware.vmode->height);
         glUseProgram(shader_program);
 
+        glUniformMatrix4fv(camera.view_mat_location, 1, GL_FALSE, cursor.viewMatrix.m);
         glBindVertexArray(cursor.vao);
         glDrawArrays(GL_TRIANGLES, 0, 12);
 
+        glUniformMatrix4fv(camera.view_mat_location, 1, GL_FALSE, camera.viewMatrix.m);
         glBindVertexArray(grid.vao);
         glDrawArrays(GL_LINES, 0, grid.numberOfLines* 2);
 
@@ -187,6 +191,7 @@ static void cursor_position_callback(GLFWwindow *window, double xpos, double ypo
 
 }
 
+
 /**
  * Called everytime we press a key on the keyboard
  * in window - the focused window
@@ -195,7 +200,6 @@ static void cursor_position_callback(GLFWwindow *window, double xpos, double ypo
  * in action - One of GFLW_PRESS, GLFW_REPEAT or GLFW_RELEASE
  */
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-
     switch (key) {
         case GLFW_KEY_W:
             input.wPressed = action == GLFW_PRESS ? true: ((action == GLFW_RELEASE) ? false: input.wPressed);
@@ -215,35 +219,103 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
             break;
         case GLFW_KEY_PAGE_UP:
             if (action == GLFW_PRESS) {
-                cursor.Y = grid.heightValue += 1.0f;
-                updateGridHeight(&grid, &cursor);
+                switch (state) {
+                    case STATE_POSITION: cursor.Y = grid.heightValue += 1.0f;updateGridHeight(&grid, &cursor); break;
+                    case STATE_SCALE:break;
+                    case STATE_ORIENTATION:
+                        cursor.roll += 45.0f;
+                        calculateCursorRotations(&cursor);break;
+                }
             }
             break;
         case GLFW_KEY_PAGE_DOWN:
             if (action == GLFW_PRESS) {
-                cursor.Y = grid.heightValue -= 1.0f;
-                updateGridHeight(&grid, &cursor);
+                switch (state) {
+                    case STATE_POSITION:
+                        cursor.Y = grid.heightValue -= 1.0f;
+                        updateGridHeight(&grid, &cursor);
+                        break;
+                    case STATE_SCALE:break;
+                    case STATE_ORIENTATION:
+                        cursor.roll -= 45.0f;
+                        calculateCursorRotations(&cursor);
+                        break;
+                }
             }
             break;
+
         case GLFW_KEY_UP:
-            if(action == GLFW_PRESS || action == GLFW_REPEAT)
-            { cursor.Z += 1.0f; updateCursorLocation(&cursor); }
+            if(action == GLFW_PRESS || action == GLFW_REPEAT) {
+                switch (state) {
+                    case STATE_POSITION:cursor.Z += 1.0f;updateCursorLocation(&cursor);break;
+                    case STATE_SCALE:
+                        cursor.Xs += 0.2f;
+                        updateCursorLocation(&cursor);
+                        break;
+                    case STATE_ORIENTATION:
+                        cursor.pitch += 45.0f;
+                        calculateCursorRotations(&cursor);
+                        break;
+                }
+            }
             break;
         case GLFW_KEY_DOWN:
             if(action == GLFW_PRESS || action == GLFW_REPEAT)
-            { cursor.Z -= 1.0f;updateCursorLocation(&cursor); }
+            {
+                switch (state) {
+                    case STATE_POSITION:cursor.Z -= 1.0f;updateCursorLocation(&cursor);break;
+                    case STATE_SCALE:
+                        cursor.Xs -= 0.2f;
+                        updateCursorLocation(&cursor);
+                        break;
+                    case STATE_ORIENTATION:
+                        cursor.pitch -= 45.0f;
+                        calculateCursorRotations(&cursor);
+                        break;
+                }
+            }
             break;
         case GLFW_KEY_LEFT:
             if(action == GLFW_PRESS || action == GLFW_REPEAT)
-            { cursor.X += 1.0f; updateCursorLocation(&cursor);}
+            {
+                switch (state) {
+                    case STATE_POSITION:
+                        cursor.X += 1.0f; updateCursorLocation(&cursor);
+                        break;
+                    case STATE_SCALE:
+                        cursor.Zs += 0.2f;
+                        updateCursorLocation(&cursor);
+                        break;
+                    case STATE_ORIENTATION:
+                        cursor.yaw += 45.0f;
+                        calculateCursorRotations(&cursor);
+                        break;
+                }
+            }
             break;
         case GLFW_KEY_RIGHT:
             if(action == GLFW_PRESS || action == GLFW_REPEAT)
-            { cursor.X -= 1.0f;updateCursorLocation(&cursor);}
+            {
+                switch (state) {
+                    case STATE_POSITION:
+                        cursor.X -= 1.0f;updateCursorLocation(&cursor);
+                        break;
+                    case STATE_SCALE:
+                        cursor.Zs -= 0.2f;
+                        updateCursorLocation(&cursor);
+                        break;
+                    case STATE_ORIENTATION:
+                        cursor.yaw -= 45.0f;
+                        calculateCursorRotations(&cursor);
+                        break;
+                }
+            }
             break;
+        case GLFW_KEY_1:state = STATE_POSITION;   break;
+        case GLFW_KEY_2:state = STATE_ORIENTATION;break;
+        case GLFW_KEY_3:state = STATE_SCALE;      break;
     }
 }
-
 
 /**
  * Change the height of the floor grid
@@ -275,57 +347,47 @@ static void updateCursorLocation(Cursor* cursor){
 
 static void setCursorCoordinates(GLfloat* data, Cursor* cursor){
     data[0] = cursor->X;
-    data[1] = cursor->Y +0.2f;
-    data[2] = cursor->Z -0.5f;
-
-    data[3] = cursor->X + 0.5f;
+    data[1] = cursor->Y + 0.2f;
+    data[2] = cursor->Z - cursor->Zs*0.5f;
+    data[3] = cursor->X + cursor->Xs*0.5f;
     data[4] = cursor->Y ;
-    data[5] = cursor->Z -0.5f;
-
-    data[6] = cursor->X - 0.5f;
+    data[5] = cursor->Z - cursor->Zs*0.5f;
+    data[6] = cursor->X -cursor->Xs*0.5f;
     data[7] = cursor->Y ;
-    data[8] = cursor->Z -0.5f;
+    data[8] = cursor->Z - cursor->Zs*0.5f;
 
     //2nd triangle
-    data[9] = cursor->X + 0.5f;
+    data[9] = cursor->X +cursor->Xs*0.5f;
     data[10] = cursor->Y + 0.2f;
     data[11] = cursor->Z;
-
-    data[12] = cursor->X + 0.5f;
+    data[12] = cursor->X + cursor->Xs*0.5f;
     data[13] = cursor->Y ;
-    data[14] = cursor->Z +0.5f;
-
-    data[15] = cursor->X + 0.5f;
+    data[14] = cursor->Z + cursor->Zs*0.5f;
+    data[15] = cursor->X + cursor->Xs*0.5f;
     data[16] = cursor->Y ;
-    data[17] = cursor->Z - 0.5f;
+    data[17] = cursor->Z - cursor->Zs* 0.5f;
 
     //third triangle
     data[18] = cursor->X ;
     data[19] = cursor->Y + 0.2f;
-    data[20] = cursor->Z + 0.5f;
-
-    data[21] = cursor->X - 0.5f;
+    data[20] = cursor->Z +cursor->Zs*0.5f;
+    data[21] = cursor->X -cursor->Xs* 0.5f;
     data[22] = cursor->Y;
-    data[23] = cursor->Z + 0.5f;
-
-    data[24] = cursor->X + 0.5f;;
+    data[23] = cursor->Z + cursor->Zs* 0.5f;
+    data[24] = cursor->X + cursor->Xs*0.5f;
     data[25] = cursor->Y;
-    data[26] = cursor->Z + 0.5f;
+    data[26] = cursor->Z + cursor->Zs* 0.5f;
 
     //fourth triangle
-    data[27] = cursor->X - 0.5f;
+    data[27] = cursor->X - cursor->Xs*0.5f;
     data[28] = cursor->Y + 0.2f;
     data[29] = cursor->Z;
-
-    data[30] = cursor->X - 0.5f;
+    data[30] = cursor->X -cursor->Xs*0.5f;
     data[31] = cursor->Y;
-    data[32] = cursor->Z - 0.5f;
-
-    data[33] = cursor->X - 0.5f;
+    data[32] = cursor->Z -  cursor->Zs*0.5f;
+    data[33] = cursor->X - cursor->Xs*0.5f;
     data[34] = cursor->Y;
-    data[35] = cursor->Z + 0.5f;
-
-
+    data[35] = cursor->Z + cursor->Zs* 0.5f;
 }
 
 /**
@@ -334,6 +396,7 @@ static void setCursorCoordinates(GLfloat* data, Cursor* cursor){
 static void calculateViewMatrix(Camera* camera){
     camera->T = translate (identity_mat4 (), vec3 (-camera->pos[0], -camera->pos[1], -camera->pos[2]));
     camera->viewMatrix = camera->Rpitch * camera->Ryaw * camera->T;
+    cursor.viewMatrix =  camera->viewMatrix * cursor.Rpitch * cursor.Ryaw * cursor.Rroll;
 }
 
 /**
@@ -350,13 +413,11 @@ static void updateMovement(Camera* camera) {
 
     //while we push,
     if (camera->pushing) {
-
         //set linear motion
         const double maxVelocity = 0.1 * (camera->pushing> 0);
         const double acceleration= camera->pushing>0 ? 0.2:0.1;
 
         if(camera->move_angle == 90.0f || camera->move_angle == -90.0f) {
-
             //Player has pressed either straf left or straf right, calculate the direction Vector using cross product
             //of actor's heading and the up direction
             vec3 left = cross(vec3(camera->viewMatrix.m[2],camera->viewMatrix.m[6],camera->viewMatrix.m[10]),
@@ -368,7 +429,6 @@ static void updateMovement(Camera* camera) {
             camera->velocity.v[2] =(float)(camera->velocity.v[2] * (1-acceleration) +
                                            ( left.v[2]) * ((camera->move_angle == 90 )? 1:-1) * (acceleration *maxVelocity));
         }else{
-
             //player has hit forward (w) or backwards (s). update the velocity in these directions
             camera->velocity.v[0] =(float)(camera->velocity.v[0] * (1-acceleration) +
                                            ( camera->viewMatrix.m[2]) * ((camera->move_angle == 180 )? -1:1) * (acceleration *maxVelocity));
@@ -398,7 +458,16 @@ static void updateMovement(Camera* camera) {
     calculateViewMatrix(camera);
     //set the new view matrix @ the shader level
     glUniformMatrix4fv(camera->view_mat_location, 1, GL_FALSE, camera->viewMatrix.m);
+}
 
+static void calculateCursorRotations(Cursor *cursor){
+    GLfloat quat[] = {0.0f,0.0f,0.0f,0.0f};
+    create_versor(quat, cursor->pitch, 1.0f, 0.0f, 0.0f);
+    quat_to_mat4(cursor->Rpitch.m, quat);
+    create_versor(quat, cursor->yaw, 0.0f, 1.0f, 0.0f);
+    quat_to_mat4(cursor->Ryaw.m, quat);
+    create_versor(quat, cursor->roll, 0.0f, 0.0f, 1.0f);
+    quat_to_mat4(cursor->Rroll.m, quat);
 }
 
 
