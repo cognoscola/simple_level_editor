@@ -16,7 +16,9 @@
 #include <platform/glfw_launcher.h>
 #include <platform/hardware.h>
 #include <utils/io_utils/shader_loader.h>
+#include <array>
 #include "onScreenObjects.h"
+#include <vector>
 
 #define VERTEX_SHADER "/home/alvaregd/Documents/Games/simple_level_editor/shaders/grid.vert"
 #define FRAGMENT_SHADER "/home/alvaregd/Documents/Games/simple_level_editor/shaders/grid.frag"
@@ -49,6 +51,20 @@ struct Camera{
     vec3 velocity; //actor's velocity
 };
 
+struct Wall{
+
+
+    vec3 position; //x,y,z
+    vec3 orientation; //x,y,z;
+    vec3 scale; //weight height
+
+    mat4 transformationMatrix;
+    mat4 T;
+
+
+};
+
+
 struct Input{
     bool wPressed;
     bool sPressed;
@@ -56,6 +72,9 @@ struct Input{
     bool dPressed;
 };
 
+static std::vector<Wall> walls;
+
+static Wall wall;
 static Cursor cursor;
 static Grid grid;
 static Camera camera;
@@ -63,9 +82,16 @@ static Input input;
 Hardware hardware;
 static State state;
 
+static GLuint wallVertexVbo;
+static GLuint wallColourVbo;
+static GLuint wallVao;
+static GLuint wallColourAttributeIndex;
+
+
+
 static void cursor_position_callback(GLFWwindow *window, double xpos, double ypos);
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
-static void calculateViewMatrix(Camera* camera, Cursor* cursor);
+static void calculateViewMatrices(Camera *camera, Cursor *cursor);
 static void updateMovement(Camera* camera);
 static void updateGridHeight(Grid* grid, Cursor* cursor);
 static void updateScales(Cursor *cursor);

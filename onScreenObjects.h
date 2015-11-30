@@ -12,8 +12,8 @@ struct Grid{
 
     GLuint vao;
     GLuint vertexVbo;
-    GLuint colorVbo;
-    GLuint colorAttributeIndex;
+    GLuint colourVbo;
+    GLuint colourAttributeIndex;
     int numberOfLines;
     GLfloat heightValue;
 };
@@ -23,10 +23,10 @@ struct Cursor{
 
     GLuint vao;
     GLuint vertexVbo;
-    GLuint colorVbo;
+    GLuint colourVbo;
     GLfloat*vertexData;
 
-    GLuint colorAttributeIndex;
+    GLuint colourAttributeIndex;
 
     GLfloat Z;
     GLfloat X;

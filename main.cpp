@@ -1,6 +1,9 @@
 #include "main.h"
 
+static void getTransformationMatrix(Wall* wall);
+
 void createVertexBufferObject(GLuint *name, size_t size, GLfloat *data){
+
     glGenBuffers (1, name);
     glBindBuffer (GL_ARRAY_BUFFER, *name);
     glBufferData (GL_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
@@ -92,36 +95,80 @@ int main () {
         }
     }
 
-//    GLfloat* gridColourData = new GLfloat
+    //create our wall items //2 triangles , 3 points each, 3 coordinate
 
 
-    GLuint shader_program = create_programme_from_files(VERTEX_SHADER, FRAGMENT_SHADER);
+
+    Wall wall = {};
+    wall.scale = vec3(1.0f, 0, 1.0f);
+    wall.position = vec3(1.0f, 1.0f, 1.0f);
+    GLfloat *wallVertexData = new GLfloat[2 * 3 * 3];
+    {
+        wallVertexData[0] = wall.scale.v[0] * 0.5f;
+        wallVertexData[1] = 0.0f;
+        wallVertexData[2] = - wall.scale.v[2] * 0.5f;
+        wallVertexData[3] = -wall.scale.v[0] * 0.5f;
+        wallVertexData[4] = 0.0f;
+        wallVertexData[5] = + wall.scale.v[2] * 0.5f;
+        wallVertexData[6] = - wall.scale.v[0] * 0.5f;
+        wallVertexData[7] = 0.0f;
+        wallVertexData[8] = - wall.scale.v[2] * 0.5f;
+        wallVertexData[9] = + wall.scale.v[0] * 0.5f;
+        wallVertexData[10] = 0.0f;
+        wallVertexData[11] = - wall.scale.v[2] * 0.5f;
+        wallVertexData[12] = + wall.scale.v[0] * 0.5f;
+        wallVertexData[13] = 0.0f;
+        wallVertexData[14] = + wall.scale.v[2] * 0.5f;
+        wallVertexData[15] = - wall.scale.v[0] * 0.5f;
+        wallVertexData[16] = 0.0f;
+        wallVertexData[17] = + wall.scale.v[2] * 0.5f;
+    }
+
+    GLfloat *wallColourData = new GLfloat[2 * 3 * 3];
+    {
+        for (int i = 0; i < 6; ++i) {
+            wallColourData[i * 3 + 0] = 0.8f;
+            wallColourData[i * 3 + 1] = 0.8f;
+            wallColourData[i * 3 + 2] = 0.8f;
+        }
+    }
+
+
 
     glfwSetCursorPosCallback(hardware.window,cursor_position_callback);
     glfwSetInputMode(hardware.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetKeyCallback(hardware.window, key_callback);
     glfwSetInputMode(hardware.window,GLFW_STICKY_KEYS, 1);
 
+    GLuint shader_program = create_programme_from_files(VERTEX_SHADER, FRAGMENT_SHADER);
     /* get version info */
     glEnable (GL_DEPTH_TEST); /* enable depth-testing */
     glDepthFunc (GL_LESS);
 
+    createVertexBufferObject(&wallColourVbo, 3 * 3 * 2 * sizeof(GLfloat), wallColourData);
+    createVertexBufferObject(&wallVertexVbo, 3 * 3 * 2 * sizeof(GLfloat), wallVertexData);
+
     createVertexBufferObject(&grid.vertexVbo, grid.numberOfLines * 6 * sizeof(GLfloat), gridVertexData);
-    createVertexBufferObject(&grid.colorVbo,  grid.numberOfLines * 6 * sizeof(GLfloat), gridColourData);
+    createVertexBufferObject(&grid.colourVbo, grid.numberOfLines * 6 * sizeof(GLfloat), gridColourData);
 
     createVertexBufferObject(&cursor.vertexVbo, (36 + (3 * 6)) * sizeof(GLfloat), cursor.vertexData);
-    createVertexBufferObject(&cursor.colorVbo, (36 + (3 * 6)) * sizeof(GLfloat), cursorColourData);
+    createVertexBufferObject(&cursor.colourVbo, (36 + (3 * 6)) * sizeof(GLfloat), cursorColourData);
 
+    createVertexArrayObjet(&wallVao, &wallVertexVbo, 3);
     createVertexArrayObjet(&grid.vao, &grid.vertexVbo, 3);
     createVertexArrayObjet(&cursor.vao, &cursor.vertexVbo, 3);
 
-    cursor.colorAttributeIndex = 1;
-    grid.colorAttributeIndex = 1;
-    setColourMesh(&cursor.vao, &cursor.colorVbo, 3,&cursor.colorAttributeIndex);
-    setColourMesh(&grid.vao, &grid.colorVbo, 3, &grid.colorAttributeIndex);
+    cursor.colourAttributeIndex = 1;
+    grid.colourAttributeIndex = 1;
+    wallColourAttributeIndex = 1;
+    setColourMesh(&cursor.vao, &cursor.colourVbo, 3, &cursor.colourAttributeIndex);
+    setColourMesh(&grid.vao, &grid.colourVbo, 3, &grid.colourAttributeIndex);
+    setColourMesh(&wallVao, &wallColourVbo, 3, &wallColourAttributeIndex);
 
     free(cursor.vertexData);
     free(cursorColourData);
+    free(wallVertexData);
+    free(wallColourData);
 
     // camera stuff
 #define PI 3.14159265359
@@ -159,6 +206,10 @@ int main () {
     cursor.yaw = cursor.roll = cursor.pitch += 0.0f;
     calculateCursorRotations(&cursor);
 
+    //create the viewmatrix of the wall
+    wall.T= translate (identity_mat4 (), vec3 (2.0f, 2.0f, 2.0f));
+
+
     glUseProgram(shader_program);
 
     camera.view_mat_location = glGetUniformLocation(shader_program, "view");
@@ -171,19 +222,36 @@ int main () {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
 
+    walls.push_back(wall);
+
     while (!glfwWindowShouldClose (hardware.window)) {
         updateMovement(&camera);
-        calculateViewMatrix(&camera, &cursor);
+        calculateViewMatrices(&camera, &cursor);
         //set the new view matrix @ the shader level
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glViewport(0, 0, hardware.vmode->width, hardware.vmode->height);
         glUseProgram(shader_program);
 
+        //draw the cursor
         glUniformMatrix4fv(camera.view_mat_location, 1, GL_FALSE, cursor.viewMatrix.m);
         glBindVertexArray(cursor.vao);
         glDrawArrays(GL_TRIANGLES, 0, 18);
 
+        //draw the walls in place
+        //for each wall, draw it.
+        //get view matrix
+
+        for ( std::vector<Wall>::iterator it = walls.begin(); it != walls.end(); ++it) {
+            Wall tempWall = *it;
+            getTransformationMatrix(&tempWall);
+            glUniformMatrix4fv(camera.view_mat_location, 1, GL_FALSE, tempWall.transformationMatrix.m);
+            glBindVertexArray(wallVao);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+        }
+
+
+        //draw the grid
         glUniformMatrix4fv(camera.view_mat_location, 1, GL_FALSE, camera.viewMatrix.m);
         glBindVertexArray(grid.vao);
         glDrawArrays(GL_LINES, 0, grid.numberOfLines* 2);
@@ -322,6 +390,17 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
                         break;
                 }
             }
+            break;
+        case GLFW_KEY_ENTER: {
+
+            //create a new wall and place it into walls vector.
+            Wall wall = {};
+            wall.position = vec3(cursor.X, cursor.Y, cursor.Z);
+            wall.orientation = vec3(cursor.pitch, cursor.yaw, cursor.roll);
+            wall.scale = vec3(cursor.Xs, cursor.Ys, cursor.Zs);
+            wall.T = translate(identity_mat4(), vec3(-wall.position.v[0], wall.position.v[1], -wall.position.v[2]));
+            walls.push_back(wall);
+        }
             break;
         case GLFW_KEY_1:state = STATE_POSITION;   break;
         case GLFW_KEY_2:state = STATE_ORIENTATION;break;
@@ -465,11 +544,15 @@ static void setCursorCoordinates(GLfloat* data, Cursor* cursor){
 /**
  * calculate a new View Matrix
  */
-static void calculateViewMatrix(Camera* camera, Cursor* cursor){
+static void calculateViewMatrices(Camera *camera, Cursor *cursor){
     camera->T = translate (identity_mat4 (), vec3 (-camera->pos[0], -camera->pos[1], -camera->pos[2]));
     camera->viewMatrix = camera->Rpitch * camera->Ryaw * camera->T;
     cursor->T = translate (identity_mat4 (), vec3 (-cursor->X, +cursor->Y, -cursor->Z));
     cursor->viewMatrix =   camera->viewMatrix * cursor->T *  cursor->Rpitch * cursor->Ryaw * cursor->Rroll ;
+}
+
+static void getTransformationMatrix(Wall* wall){
+    wall->transformationMatrix = camera.viewMatrix * wall->T;
 }
 
 /**
